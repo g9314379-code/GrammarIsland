@@ -589,7 +589,7 @@
                 title: "☘️ If Conditionals", 
                 rule: "Type 0 for facts. Type 1 for real future. Type 2 for imaginary present. Type 3 for past regrets.", 
                 example: "If I were a bird, I would fly (Type 2).",
-                videoSrc: "Conditionals.mp4",
+                videoSrc: "ifconditional.mp4",
                 quizzes: [
                     { q: "If you heat ice, it _______.", options: ["will melt", "melts", "melted"], correct: "melts" },
                     { q: "If I _______ rich, I would travel.", options: ["am", "was", "were"], correct: "were" },
@@ -613,7 +613,7 @@
                 title: "🏰 Reported Speech", 
                 rule: "Shift tenses backwards (Present -> Past).", 
                 example: "'I am happy' -> He said he was happy.",
-                videoSrc: "reported.mp4",
+                videoSrc: "reportedspeech.mp4",
                 quizzes: [
                     { 
                         type: "matching",
@@ -924,20 +924,18 @@
                 const videoElement = document.createElement('video');
                 videoElement.src = activeTopicData.videoSrc;
                 videoElement.controls = true;
-                videoElement.autoplay = true;
-                videoElement.className = "w-full aspect-video outline-none";
                 
+                // Mute Miss P if the user manually clicks play
+                videoElement.addEventListener('play', () => {
+                   if ('speechSynthesis' in window) {
+                       window.speechSynthesis.cancel();
+                   }
+                });
+
                 videoElement.onerror = function() {
                     console.warn(`Video load failed: ${activeTopicData.videoSrc}. Using text fallback.`);
                     renderTextFallback();
                 };
-
-                const playPromise = videoElement.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("Autoplay prevented or video missing. User must interact.", error);
-                    });
-                }
 
                 const videoContainer = document.createElement('div');
                 videoContainer.className = "w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg bg-black border-4 border-sky-100";
