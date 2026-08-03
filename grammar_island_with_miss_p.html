@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grammar Island with Miss P</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;700&display=swap');
+        body { font-family: 'Quicksand', sans-serif; background-color: #f1f5f9; }
+        .kids-title { font-family: 'Fredoka One', cursive; }
+        
+        /* Bubble Game Animations */
+        @keyframes floatUp { 
+            0% { transform: translateY(0) scale(0.5); opacity: 0; } 
+            10% { opacity: 1; transform: translateY(-30px) scale(1); } 
+            90% { opacity: 1; transform: translateY(-350px) scale(1); } 
+            100% { transform: translateY(-400px) scale(1.2); opacity: 0; } 
+        }
+        .bubble-pop { 
+            position: absolute; border-radius: 50%; cursor: pointer; 
+            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .bubble-pop:active { transform: scale(0.8); }
+
+        /* Miss P Talk Animation */
+        @keyframes talk-bounce {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.02) translateY(-4px); }
+        }
+        .talking-anim { animation: talk-bounce 0.4s infinite ease-in-out; }
+        
+        /* Auto-Save Toast Animation */
+        @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .toast-anim { animation: slideUpFade 3s ease-in-out forwards; }
+
+        /* SVG Line drawing stroke animation */
+        @keyframes drawLine {
+            from { stroke-dashoffset: 100%; }
+            to { stroke-dashoffset: 0%; }
+        }
+        .animated-line {
+            stroke-dasharray: 100%;
+            animation: drawLine 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-4">
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-6xl bg-white rounded-3xl shadow-md border-b-4 border-amber-200 px-6 py-4 flex justify-between items-center mb-6 relative">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="closeStation()">
+            <span class="text-4xl animate-bounce">🏝️</span>
+            <div>
+                <h1 class="kids-title text-2xl text-amber-500 tracking-wide">Grammar Island</h1>
+                <p class="text-xs text-emerald-600 font-bold uppercase tracking-widest">with Miss P</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-4 bg-amber-50 px-5 py-2 rounded-full border-2 border-amber-200 mr-2">
+                <span class="text-2xl animate-pulse">⭐</span>
+                <span id="global-stars" class="font-bold text-amber-600 text-xl">0</span>
+                <span class="text-xs font-bold text-amber-500 uppercase">Stars</span>
+            </div>
+            <button onclick="document.getElementById('resetModal').classList.remove('hidden')" class="bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-500 p-2 rounded-full transition-colors" title="Reset Progress">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Reset Warning Modal -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm flex">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border-4 border-rose-200">
+            <div class="text-5xl mb-4">⚠️</div>
+            <h3 class="kids-title text-2xl text-rose-500 mb-2">Reset Progress?</h3>
+            <p class="text-slate-600 mb-6 font-bold">This will delete all your stars and hats! Are you sure?</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="document.getElementById('resetModal').classList.add('hidden')" class="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-full transition-colors">Cancel</button>
+                <button onclick="clearGameState()" class="px-6 py-2 bg-rose-400 hover:bg-rose-500 text-white font-bold rounded-full transition-colors shadow-md">Yes, Reset!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="w-full max-w-6xl flex flex-col lg:flex-row gap-6 items-start flex-grow">
+        
+        <!-- LEFT PANEL: Avatar & Wardrobe -->
+        <section class="w-full lg:w-1/3 bg-white rounded-3xl border-4 border-sky-200 p-6 shadow-lg flex flex-col items-center">
+            <div class="w-full bg-sky-50 border-2 border-sky-100 rounded-2xl p-4 mb-4 shadow-inner text-slate-700 relative">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-1.5 text-sky-500 text-xs font-bold uppercase tracking-wider">
+                        <i class="fa-solid fa-comment-dots"></i> Miss P:
+                    </div>
+                    <button id="voiceToggleBtn" onclick="toggleVoice()" class="text-xs font-bold bg-sky-200 text-sky-700 px-3 py-1 rounded-full hover:bg-sky-300 transition-colors flex items-center gap-1 shadow-sm">
+                        <i id="voiceIcon" class="fa-solid fa-volume-high"></i> <span id="voiceText">ON</span>
+                    </button>
+                </div>
+                <p id="speechText" class="text-sm font-semibold">Welcome to Grammar Island! Choose a level to start learning!</p>
+            </div>
+
+            <!-- Avatar Frame -->
+            <div class="relative w-56 h-56 rounded-full flex items-center justify-center bg-pink-50 border-4 border-pink-200 shadow-inner overflow-hidden mb-6">
+                <!-- Avatar Image with Fallback to SVG -->
+                <img id="teacherImageReal" src="Gemini_Generated_Image_7mdekx7mdekx7mde.png" onerror="this.style.display='none'; document.getElementById('teacherImage').style.display='block';" alt="Miss P" class="w-full h-full object-cover rounded-full z-10 transition-transform duration-300">
+                
+                <svg id="teacherImage" style="display:none;" viewBox="0 0 200 200" class="w-full h-full object-cover z-10">
+                    <path d="M40,100 C35,50 60,20 100,20 C140,20 165,50 160,100 L160,180 C160,190 140,190 140,180 L60,180 C60,190 40,190 40,180 Z" fill="#2d2a26"/>
+                    <rect x="85" y="110" width="30" height="40" fill="#fcdbb3" rx="10" />
+                    <path d="M60,150 Q100,160 140,150 L160,180 Q100,200 40,180 Z" fill="#fcdbb3"/>
+                    <ellipse cx="100" cy="94" rx="48" ry="46" fill="#fcdbb3"/>
+                    <path d="M52,94 C48,40 70,25 100,25 C130,25 152,40 148,94 C142,40 110,30 90,30 C70,30 58,40 52,94" fill="#2d2a26"/>
+                    <path d="M52,94 Q62,114 67,150 Q62,124 52,94" fill="#2d2a26"/>
+                    <path d="M148,94 Q138,114 133,150 Q138,124 148,94" fill="#2d2a26"/>
+                    <path d="M72,74 Q80,69 88,74" fill="none" stroke="#2d2a26" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M112,74 Q120,69 128,74" fill="none" stroke="#2d2a26" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="82" cy="84" r="6" fill="#000" />
+                    <circle cx="118" cy="84" r="6" fill="#000" />
+                    <circle cx="80" cy="82" r="1.5" fill="#fff" />
+                    <circle cx="116" cy="82" r="1.5" fill="#fff" />
+                    <ellipse cx="68" cy="92" rx="8" ry="5" fill="#ffb6b9" opacity="0.8" />
+                    <ellipse cx="132" cy="92" rx="8" ry="5" fill="#ffb6b9" opacity="0.8" />
+                    <path d="M98,99 Q100,102 102,99" fill="none" stroke="#d4a373" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M85,114 Q100,124 115,114" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M50,155 Q100,170 150,155 C165,160 170,170 170,190 L30,190 C30,170 35,160 50,155 Z" fill="#93c5fd" />
+                </svg>
+
+                <!-- Hat Overlays (SVG) -->
+                <div id="hat-superhero" class="absolute top-[8%] left-[50%] transform -translate-x-1/2 w-[55%] hidden z-20 pointer-events-none">
+                    <svg viewBox="0 0 100 50" class="w-full h-full drop-shadow-md">
+                        <path d="M5,42 L25,24 L50,12 L75,24 L95,42 C75,34 25,34 5,42 Z" fill="#FBBF24" stroke="#D97706" stroke-width="2.5" stroke-linejoin="round"/>
+                        <polygon points="50,16 53,23 60,23 55,27 57,34 50,30 43,34 45,27 40,23 47,23" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5"/>
+                    </svg>
+                </div>
+                <div id="hat-detective" class="absolute top-[-8%] left-[50%] transform -translate-x-1/2 w-[65%] hidden z-20 pointer-events-none">
+                    <svg viewBox="0 0 120 80" class="w-full h-full drop-shadow-md">
+                        <path d="M20,60 C20,22 100,22 100,60" fill="#B45309" stroke="#78350F" stroke-width="2.5" stroke-linejoin="round"/>
+                        <path d="M12,60 C22,53 52,53 57,60 C52,66 22,66 12,60" fill="#92400E" stroke="#78350F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M108,60 C98,53 68,53 63,60 C68,66 98,66 108,60" fill="#92400E" stroke="#78350F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M45,30 Q60,14 75,30 Z" fill="#92400E" stroke="#78350F" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Wardrobe Buttons -->
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Hat Shop (Click to Equip)</span>
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <button id="btn-hat-superhero" onclick="buyOrEquipHat('superhero', 10)" class="bg-slate-50 border-2 border-slate-200 p-3 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                    <span class="text-2xl mb-1">🦸‍♀️</span>
+                    <span class="text-xs font-bold text-slate-700">Hero Crown</span>
+                    <span id="cost-superhero" class="text-xs font-bold text-amber-500 mt-1">10 ⭐</span>
+                </button>
+                <button id="btn-hat-detective" onclick="buyOrEquipHat('detective', 20)" class="bg-slate-50 border-2 border-slate-200 p-3 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                    <span class="text-2xl mb-1">🕵️‍♀️</span>
+                    <span class="text-xs font-bold text-slate-700">Detective</span>
+                    <span id="cost-detective" class="text-xs font-bold text-amber-500 mt-1">20 ⭐</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Dynamic Lobby / Learning Station -->
+        <section class="w-full lg:w-2/3 bg-white rounded-3xl border-4 border-indigo-100 p-6 shadow-lg h-auto flex flex-col">
+            
+            <!-- ================= VIEW 1: GRAND LOBBY ================= -->
+            <div id="view_lobby" class="w-full flex-grow">
+                
+                <!-- 程度分頁按鈕 -->
+                <div class="flex gap-2 mb-6 border-b-2 border-slate-100 pb-2">
+                    <button id="tab-lvl-beg" onclick="filterLobby('beg')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-emerald-100 text-emerald-700 border-2 border-emerald-300 transition-all">🌱 Beginner</button>
+                    <button id="tab-lvl-int" onclick="filterLobby('int')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all">🚤 Intermediate</button>
+                    <button id="tab-lvl-adv" onclick="filterLobby('adv')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all">🏔️ Advanced</button>
+                </div>
+
+                <div id="lobby-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Categories generated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- ================= VIEW 2: LEARNING STATION ================= -->
+            <div id="view_station" class="w-full flex-grow hidden flex-col">
+                <button onclick="closeStation()" class="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 mb-4 self-start bg-indigo-50 px-3 py-1.5 rounded-full">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Map
+                </button>
+                
+                <h2 id="stationTitle" class="kids-title text-2xl text-slate-800 mb-4 text-center">Topic Title</h2>
+
+                <!-- 3 Tabs Navigation -->
+                <div class="flex border-b-2 border-slate-100 font-bold text-sm bg-slate-50 rounded-t-xl overflow-hidden">
+                    <button onclick="switchTab('lesson')" id="tab-btn-lesson" class="flex-1 py-3 text-center border-b-4 border-amber-400 text-amber-600 bg-white transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-person-chalkboard"></i> 1. Lesson
+                    </button>
+                    <button onclick="switchTab('quest')" id="tab-btn-quest" class="flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100">
+                        <i class="fa-solid fa-clipboard-question"></i> 2. Quest
+                    </button>
+                    <button onclick="switchTab('game')" id="tab-btn-game" class="flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100">
+                        <i class="fa-solid fa-gamepad"></i> 3. Game
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="p-6 bg-white border-x-2 border-b-2 border-slate-100 rounded-b-xl flex-grow flex flex-col relative overflow-visible">
+                    
+                    <!-- TAB 1: LESSON -->
+                    <div id="tab-content-lesson" class="block">
+                        <div id="lessonContentContainer" class="flex flex-col items-center"></div>
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="switchTab('quest')" class="bg-amber-400 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-2xl shadow-md transition-all flex items-center gap-2">
+                                Ready for Quest <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: QUEST -->
+                    <div id="tab-content-quest" class="hidden flex-col flex-grow min-h-[350px]">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-xs font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-full" id="questProgressTag">Quest 1/X</span>
+                            <div class="flex items-center gap-1 text-amber-500 font-bold">
+                                <i class="fa-solid fa-star"></i> <span id="questScore">0</span>
+                            </div>
+                        </div>
+                        
+                        <div id="questQuestionContainer" class="bg-sky-50 border-2 border-sky-100 rounded-2xl p-6 text-center shadow-inner mb-6 relative">
+                            <p id="questQuestionText" class="text-lg font-bold text-slate-700 leading-relaxed">Loading...</p>
+                        </div>
+
+                        <div id="questOptionsContainer" class="w-full relative flex-grow flex flex-col justify-center"></div>
+
+                        <div id="questNextContainer" class="mt-6 flex justify-end hidden">
+                            <button onclick="nextQuestQuestion()" class="bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-2xl shadow-md transition-all flex items-center gap-2">
+                                Next <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: GAME -->
+                    <div id="tab-content-game" class="hidden flex-col h-full min-h-[400px]">
+                        <div class="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-2xl border-2 border-purple-100">
+                            <div>
+                                <span class="block text-[10px] text-purple-400 font-bold uppercase">Time</span>
+                                <span id="gameTimer" class="text-2xl font-black text-purple-600">30s</span>
+                            </div>
+                            <div class="text-center flex-grow">
+                                <span class="block text-[10px] text-purple-400 font-bold uppercase">Mission</span>
+                                <span id="gameTargetText" class="text-sm font-bold text-slate-700">Play the game!</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] text-amber-500 font-bold uppercase">Score</span>
+                                <span id="gameScore" class="text-2xl font-black text-amber-500">0</span>
+                            </div>
+                        </div>
+
+                        <!-- 共通遊戲視窗 -->
+                        <div id="multi-game-container" class="flex-grow h-[400px] bg-gradient-to-b from-sky-200 to-sky-50 rounded-2xl relative overflow-hidden border-4 border-sky-300 flex flex-col justify-end">
+                            
+                            <!-- Bubble Game Container -->
+                            <div id="bubble-container" class="absolute inset-0 hidden"></div>
+                            
+                            <!-- Monster Game Container (Articles) -->
+                            <div id="monster-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4">
+                                <div id="monster-word-display" class="absolute top-10 bg-white px-6 py-3 rounded-2xl border-4 border-purple-300 text-2xl font-black text-purple-600 shadow-lg hidden"></div>
+                                <div class="text-7xl mb-4" id="monster-emoji">👾</div>
+                                <div class="flex gap-4">
+                                    <button onclick="feedMonster('a')" class="bg-pink-400 hover:bg-pink-500 text-white font-black text-xl py-4 px-8 rounded-3xl shadow-lg border-b-4 border-pink-600 active:translate-y-1 active:border-b-0">Feed 'A'</button>
+                                    <button onclick="feedMonster('an')" class="bg-amber-400 hover:bg-amber-500 text-white font-black text-xl py-4 px-8 rounded-3xl shadow-lg border-b-4 border-amber-600 active:translate-y-1 active:border-b-0">Feed 'AN'</button>
+                                </div>
+                            </div>
+
+                            <!-- Robot Power Game Container (Be-Verbs) -->
+                            <div id="robot-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4 bg-slate-800">
+                                <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 4px);"></div>
+                                <!-- Target Pronoun Display (Screen) -->
+                                <div class="absolute top-8 bg-black border-4 border-slate-600 rounded-xl px-8 py-5 min-w-[160px] shadow-[0_0_15px_#38bdf8] flex justify-center items-center">
+                                    <span id="robot-target-display" class="text-3xl sm:text-4xl font-mono text-sky-400 font-black tracking-wide leading-normal">I</span>
+                                </div>
+                                <div class="text-7xl mb-4 relative z-10" id="robot-emoji">🤖</div>
+                                <div class="flex gap-3 relative z-10 w-full px-4 justify-center">
+                                    <button onclick="powerRobot('am')" class="flex-1 max-w-[100px] bg-sky-500 hover:bg-sky-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#0284c7] active:translate-y-1 active:shadow-none transition-all">AM</button>
+                                    <button onclick="powerRobot('is')" class="flex-1 max-w-[100px] bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#059669] active:translate-y-1 active:shadow-none transition-all">IS</button>
+                                    <button onclick="powerRobot('are')" class="flex-1 max-w-[100px] bg-rose-500 hover:bg-rose-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#e11d48] active:translate-y-1 active:shadow-none transition-all">ARE</button>
+                                </div>
+                            </div>
+
+                            <!-- Treasure Chest Game Container (Plurals) -->
+                            <div id="treasure-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4 bg-[url('https://www.transparenttextures.com/patterns/sandpaper.png')] bg-amber-100">
+                                <div id="treasure-word-display" class="absolute top-10 bg-white px-8 py-4 rounded-2xl border-4 border-amber-400 text-2xl font-black text-amber-700 shadow-xl hidden"></div>
+                                <div class="flex gap-8 w-full px-8 justify-center mb-4 relative z-20">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <button onclick="openChest('singular')" class="text-7xl hover:scale-110 active:scale-95 transition-transform cursor-pointer" id="chest-singular">📦</button>
+                                        <span class="font-bold text-amber-800 bg-amber-200 px-3 py-1 rounded-full text-sm">Singular (1)</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-2">
+                                        <button onclick="openChest('plural')" class="text-7xl hover:scale-110 active:scale-95 transition-transform cursor-pointer" id="chest-plural">🎁</button>
+                                        <span class="font-bold text-rose-800 bg-rose-200 px-3 py-1 rounded-full text-sm">Plural (2+)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cat & Box Game Container (Prepositions) -->
+                            <div id="catbox-container" class="absolute inset-0 hidden flex flex-col items-center bg-[url('https://www.transparenttextures.com/patterns/white-wall.png')] bg-emerald-50">
+                                <!-- Instructions -->
+                                <div id="catbox-sentence-display" class="absolute top-8 bg-white px-6 py-3 rounded-2xl border-4 border-emerald-300 text-xl font-black text-emerald-700 shadow-lg text-center z-30">
+                                    The cat is <span class="text-pink-500">UNDER</span> the box.
+                                </div>
+                                
+                                <!-- Play Area -->
+                                <div class="relative w-full max-w-[300px] h-[280px] mt-24">
+                                    <!-- The Box (Base) -->
+                                    <div class="absolute left-1/2 bottom-12 transform -translate-x-1/2 text-8xl z-10 pointer-events-none drop-shadow-md">📦</div>
+                                    
+                                    <!-- Clickable Hotspots using BOTTOM positioning for alignment -->
+                                    <button onclick="moveCat('on')" class="absolute bottom-[165px] left-1/2 transform -translate-x-1/2 w-28 h-20 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-xl hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for ON</button>
+                                    <button onclick="moveCat('in')" class="absolute bottom-[75px] left-1/2 transform -translate-x-1/2 w-24 h-24 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-full hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for IN</button>
+                                    <button onclick="moveCat('under')" class="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 w-32 h-16 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-xl hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for UNDER</button>
+                                    
+                                    <!-- The Cat (Movable Element) -->
+                                    <div id="the-cat" class="absolute text-5xl transition-all duration-300 transform -translate-x-1/2 z-15 left-[15%] bottom-[10px] drop-shadow-sm">🐱</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Spot The Error Game Container -->
+                            <div id="spot-container" class="absolute inset-0 hidden flex flex-col items-center bg-slate-100 pb-6 pt-4 px-4">
+                                <div class="w-full max-w-lg bg-white p-6 rounded-3xl border-4 border-slate-300 shadow-xl relative flex-grow flex flex-col justify-center">
+                                    <div class="absolute -top-4 -left-4 text-4xl transform -rotate-12">🔍</div>
+                                    <h3 class="text-center font-bold text-slate-500 mb-6 uppercase tracking-wider text-sm">Find the mistake!</h3>
+                                    
+                                    <!-- Word Magnets Container -->
+                                    <div id="spot-sentence-box" class="flex flex-wrap justify-center gap-3">
+                                        <!-- Magnetic words populated via JS -->
+                                    </div>
+                                    
+                                    <div id="spot-feedback" class="h-12 mt-6 flex items-center justify-center text-xl font-bold"></div>
+                                </div>
+                            </div>
+
+                            <!-- Game Start Overlay -->
+                            <div id="gameStartOverlay" class="absolute inset-0 bg-black/40 flex items-center justify-center z-40 backdrop-blur-sm hidden"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+    </main>
+    
+    <!-- Auto-Save Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // ==========================================
+        // 1. DATABASE: Curriculum & Quizzes
+        // ==========================================
+        const curriculum = {
+            // ----- BEGINNER BAY -----
+            beg_1: {
+                title: "🐝 Be-Verbs (am/is/are)", 
+                rule: "I uses 'am'. Singular uses 'is'. Plural & You uses 'are'.", 
+                example: "I am happy. The dog is cute. They are running.",
+                videoSrc: "be_verb.mp4",
+                quizzes: [
+                    { q: "I _______ a student.", options: ["am", "is", "are"], correct: "am" },
+                    { q: "The dog _______ barking.", options: ["am", "is", "are"], correct: "is" },
+                    { q: "They _______ my friends.", options: ["am", "is", "are"], correct: "are" }
+                ],
+                game: { 
+                    type: "robot", targetText: "Power the Robot!", 
+                    targets: [ { word: "I", type: "am" }, { word: "He", type: "is" }, { word: "She", type: "is" }, { word: "It", type: "is" }, { word: "They", type: "are" }, { word: "We", type: "are" }, { word: "You", type: "are" } ] 
+                }
+            },
+            beg_2: {
+                title: "🍎 Plurals (s/es/ies)", 
+                rule: "Add -s to most words. Add -es to words ending in s, x, ch, sh. Change y to -ies.", 
+                example: "One cat -> Two cats. One box -> Two boxes.",
+                videoSrc: "Plurals.mp4",
+                quizzes: [
+                    { q: "I have two _______ (apple).", options: ["apples", "appleses", "applies"], correct: "apples" },
+                    { q: "He washed the _______ (dish).", options: ["dishs", "dishes", "dishies"], correct: "dishes" },
+                    { q: "Look at those _______ (baby).", options: ["babys", "babies", "babyies"], correct: "babies" }
+                ],
+                game: { 
+                    type: "treasure", targetText: "Sort into Chests!", 
+                    targets: [ { word: "one dog", type: "singular" }, { word: "three dogs", type: "plural" }, { word: "a box", type: "singular" }, { word: "five boxes", type: "plural" }, { word: "a baby", type: "singular" }, { word: "two babies", type: "plural" } ] 
+                }
+            },
+            beg_3: {
+                title: "👤 Pronouns (He/She/It/They)", 
+                rule: "Use 'He' for a boy, 'She' for a girl, 'It' for a thing/animal, 'They' for many.", 
+                example: "Tom is tall. -> He is tall.",
+                videoSrc: "pronoun.mp4",
+                quizzes: [
+                    { q: "Mary is my sister. _______ is very kind.", options: ["He", "She", "It"], correct: "She" },
+                    { q: "The book is heavy. _______ is on the table.", options: ["He", "She", "It"], correct: "It" },
+                    { q: "Tom and Jerry are playing. _______ are fast.", options: ["We", "You", "They"], correct: "They" }
+                ],
+                game: { targetText: "Pop the pronouns!", type: "bubble", targets: ["he", "she", "it", "they", "we", "I"], decoys: ["Tom", "Mary", "dog", "book"] }
+            },
+            beg_4: {
+                title: "🅰️ Articles (a/an/the)", 
+                rule: "Use 'a' for consonant sounds. Use 'an' for vowel sounds (a,e,i,o,u). Use 'the' for specific things.", 
+                example: "an apple, a car, the sun.",
+                videoSrc: "Articles.mp4",
+                quizzes: [
+                    { q: "I want to buy _______ new car.", options: ["a", "an", "the"], correct: "a" },
+                    { q: "I saw _______ elephant at the zoo.", options: ["a", "an", "the"], correct: "an" },
+                    { q: "Can you pass me _______ salt on the table?", options: ["a", "an", "the"], correct: "the" }
+                ],
+                game: { 
+                    type: "monster", targetText: "Feed the Monster!", 
+                    targets: [ { word: "apple", type: "an" }, { word: "umbrella", type: "an" }, { word: "egg", type: "an" }, { word: "dog", type: "a" }, { word: "cat", type: "a" }, { word: "book", type: "a" } ] 
+                }
+            },
+            beg_5: {
+                title: "📍 Prepositions (in/on/under)", 
+                rule: "Prepositions tell us WHERE things are. 'In' means inside, 'on' means touching the top, 'under' means below.", 
+                example: "The cat is IN the box. The apple is ON the table.",
+                videoSrc: "preposition.mp4",
+                quizzes: [
+                    { q: "The bird is flying _______ the sky.", options: ["in", "on", "under"], correct: "in" },
+                    { q: "I left my book _______ the desk.", options: ["in", "on", "under"], correct: "on" },
+                    { q: "The dog is sleeping _______ the bed.", options: ["in", "on", "under"], correct: "under" }
+                ],
+                game: { 
+                    type: "catbox", targetText: "Move the Cat!", 
+                    targets: [ { word: "in", sentence: "The cat is IN the box." }, { word: "on", sentence: "The cat is ON the box." }, { word: "under", sentence: "The cat is UNDER the box." } ] 
+                }
+            },
+            beg_6: {
+                title: "⏱️ Simple Present", 
+                rule: "Use Simple Present for habits or facts. Add 's' or 'es' for He/She/It.", 
+                example: "I play tennis. He plays tennis.",
+                videoSrc: "PresentTense.mp4",
+                quizzes: [
+                    { q: "She _______ to school every day.", options: ["go", "goes", "going"], correct: "goes" },
+                    { q: "They _______ breakfast at 7 AM.", options: ["eat", "eats", "eating"], correct: "eat" },
+                    { q: "The sun _______ in the east.", options: ["rise", "rises", "rising"], correct: "rises" }
+                ],
+                game: { targetText: "Pop the Simple Present verbs!", type: "bubble", targets: ["plays", "eats", "goes", "runs", "sleeps"], decoys: ["playing", "ate", "gone", "running"] }
+            },
+
+            // ----- INTERMEDIATE ISLE -----
+            int_1: {
+                title: "🏃‍♀️ Present Continuous", 
+                rule: "Use am/is/are + verb-ing for actions happening RIGHT NOW.", 
+                example: "I am eating. She is reading. They are playing.",
+                videoSrc: "PresentContinuous.mp4",
+                quizzes: [
+                    { q: "Look! The baby _______.", options: ["sleeps", "is sleeping", "are sleeping"], correct: "is sleeping" },
+                    { q: "We _______ a movie right now.", options: ["watch", "is watching", "are watching"], correct: "are watching" },
+                    { q: "I _______ my homework at the moment.", options: ["am doing", "is doing", "do"], correct: "am doing" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the error!", 
+                    targets: [ 
+                        { sentence: ["She", "are", "reading", "a", "book", "."], wrongIdx: 1, correction: "is" }, 
+                        { sentence: ["I", "is", "playing", "football", "now", "."], wrongIdx: 1, correction: "am" },
+                        { sentence: ["They", "am", "eating", "pizza", "."], wrongIdx: 1, correction: "are" }
+                    ] 
+                }
+            },
+            int_2: {
+                title: "🕰️ Past Simple", 
+                rule: "Use Past Simple for completed past actions. Add -ed to regular verbs. Irregular verbs change form.", 
+                example: "I played tennis yesterday. I went to the store.",
+                videoSrc: "PastSimple.mp4",
+                quizzes: [
+                    { q: "Yesterday, we _______ to the park.", options: ["go", "went", "gone"], correct: "went" },
+                    { q: "She _______ the movie last night.", options: ["watch", "watches", "watched"], correct: "watched" },
+                    { q: "I _______ a great book last week.", options: ["read", "reads", "reading"], correct: "read" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the wrong past tense!", 
+                    targets: [ 
+                        { sentence: ["I", "go", "to", "school", "yesterday", "."], wrongIdx: 1, correction: "went" }, 
+                        { sentence: ["He", "eat", "an", "apple", "last", "night", "."], wrongIdx: 1, correction: "ate" },
+                        { sentence: ["We", "see", "a", "movie", "yesterday", "."], wrongIdx: 1, correction: "saw" }
+                    ] 
+                }
+            },
+            int_3: {
+                title: "⚖️ Comparatives", 
+                rule: "Add -er for short words. Use 'more' for long words to compare TWO things.", 
+                example: "A cat is smaller than a dog. Gold is more expensive than silver.",
+                videoSrc: "Comparatives.mp4",
+                quizzes: [
+                    { q: "My car is _______ than yours.", options: ["fast", "faster", "more fast"], correct: "faster" },
+                    { q: "This book is _______ than that one.", options: ["interesting", "more interesting", "most interesting"], correct: "more interesting" },
+                    { q: "He is _______ than his brother.", options: ["tall", "taller", "more tall"], correct: "taller" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the comparative error!", 
+                    targets: [ 
+                        { sentence: ["My", "dog", "is", "more", "big", "."], wrongIdx: 3, correction: "bigger" }, 
+                        { sentence: ["She", "is", "beautifuler", "than", "me", "."], wrongIdx: 2, correction: "more beautiful" },
+                        { sentence: ["He", "runs", "fastest", "than", "Tom", "."], wrongIdx: 2, correction: "faster" }
+                    ] 
+                }
+            },
+            int_4: {
+                title: "🦸 Modals (Can/Could)", 
+                rule: "Use 'can' for present ability. Use 'could' for past ability. Always followed by a base verb!", 
+                example: "I can swim. When I was young, I could run fast.",
+                videoSrc: "Modals.mp4",
+                quizzes: [
+                    { q: "I _______ ride a bike now.", options: ["can", "could", "should"], correct: "can" },
+                    { q: "When he was 5, he _______ read.", options: ["can", "could", "will"], correct: "could" },
+                    { q: "She _______ speak three languages.", options: ["can", "could", "would"], correct: "can" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the modal error!", 
+                    targets: [ 
+                        { sentence: ["I", "can", "swimming", "in", "the", "pool", "."], wrongIdx: 2, correction: "swim" }, 
+                        { sentence: ["When", "I", "was", "young", ",", "I", "can", "run", "fast", "."], wrongIdx: 6, correction: "could" },
+                        { sentence: ["She", "could", "plays", "the", "piano", "."], wrongIdx: 2, correction: "play" }
+                    ] 
+                }
+            },
+            int_5: {
+                title: "❓ Wh- Question words", 
+                rule: "Who (person), What (thing), Where (place), When (time), Why (reason).", 
+                example: "Who is he? Where do you live? Why are you sad?",
+                videoSrc: "WhQuestions.mp4",
+                quizzes: [
+                    { q: "_______ is your favorite color?", options: ["Who", "What", "Where"], correct: "What" },
+                    { q: "_______ are you going?", options: ["Who", "Where", "When"], correct: "Where" },
+                    { q: "_______ is that man?", options: ["Who", "What", "Why"], correct: "Who" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the wrong Wh- word!", 
+                    targets: [ 
+                        { sentence: ["Who", "is", "your", "name", "?"], wrongIdx: 0, correction: "What" }, 
+                        { sentence: ["Who", "are", "you", "going", "?"], wrongIdx: 0, correction: "Where" },
+                        { sentence: ["Where", "time", "is", "it", "?"], wrongIdx: 0, correction: "What" }
+                    ] 
+                }
+            },
+            int_6: {
+                title: "🔗 Conjunctions (and/but/so/or/because)", 
+                rule: "Connect words or sentences. 'And' adds info. 'But' shows difference. 'Because' gives reason. 'So' gives result.", 
+                example: "I like apples AND bananas. I am tired SO I will sleep.",
+                videoSrc: "Conjunctions.mp4",
+                quizzes: [
+                    { q: "I like dogs, _______ I don't like cats.", options: ["and", "but", "so"], correct: "but" },
+                    { q: "I was hungry, _______ I ate an apple.", options: ["because", "but", "so"], correct: "so" },
+                    { q: "I stayed home _______ it was raining.", options: ["so", "because", "and"], correct: "because" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the wrong conjunction!", 
+                    targets: [ 
+                        { sentence: ["I", "am", "tired", "because", "I", "will", "sleep", "."], wrongIdx: 3, correction: "so" }, 
+                        { sentence: ["I", "like", "apples", "but", "bananas", "."], wrongIdx: 3, correction: "and" },
+                        { sentence: ["It", "was", "raining", "so", "I", "stayed", "home", "."], wrongIdx: 3, correction: "so" }
+                    ] 
+                }
+            },
+
+            // ----- ADVANCED ALPS -----
+            adv_1: {
+                title: "🔮 Simple Future (will / be going to)", 
+                rule: "Use 'will' for sudden decisions or predictions. Use 'be going to' for planned actions.", 
+                example: "I think it will rain. I am going to visit Paris next week.",
+                videoSrc: "future.mp4",
+                quizzes: [
+                    { q: "I have my ticket. I _______ fly to Tokyo tomorrow.", options: ["will", "am going to", "going to"], correct: "am going to" },
+                    { q: "I'm thirsty! I _______ get some water.", options: ["will", "am going to", "go to"], correct: "will" },
+                    { q: "Look at those dark clouds. It _______ rain.", options: ["will", "is going to", "goes to"], correct: "is going to" }
+                ],
+                game: { targetText: "Pop future verbs!", type: "bubble", targets: ["will go", "is going to fly", "will eat", "are going to win"], decoys: ["went", "flying", "ate", "won"] }
+            },
+            adv_2: {
+                title: "🏔️ Present Perfect", 
+                rule: "Use has/have + past participle (V3) for experiences up to now, or actions starting in past and continuing.", 
+                example: "I have eaten breakfast. She has lived here for 5 years.",
+                videoSrc: "PresentPerfect.mp4",
+                quizzes: [
+                    { q: "She _______ to the moon.", options: ["has went", "have gone", "has gone"], correct: "has gone" },
+                    { q: "We _______ each other for 10 years.", options: ["know", "has known", "have known"], correct: "have known" },
+                    { q: "I _______ finished my homework yet.", options: ["has not", "have not", "did not"], correct: "have not" }
+                ],
+                game: { targetText: "Pop Present Perfect verbs!", type: "bubble", targets: ["has gone", "have seen", "has played", "have eaten"], decoys: ["went", "see", "playing", "ate"] }
+            },
+            adv_3: {
+                title: "☘️ If Conditionals", 
+                rule: "Type 0 for facts. Type 1 for real future. Type 2 for imaginary present. Type 3 for past regrets.", 
+                example: "If I were a bird, I would fly (Type 2).",
+                videoSrc: "Conditionals.mp4",
+                quizzes: [
+                    { q: "If you heat ice, it _______.", options: ["will melt", "melts", "melted"], correct: "melts" },
+                    { q: "If I _______ rich, I would travel.", options: ["am", "was", "were"], correct: "were" },
+                    { q: "If it rains tomorrow, we _______ at home.", options: ["stay", "will stay", "would stay"], correct: "will stay" }
+                ],
+                game: { targetText: "Pop conditional words!", type: "bubble", targets: ["if", "would", "will", "had"], decoys: ["and", "but", "so", "because"] }
+            },
+            adv_4: {
+                title: "🔗 Relative Clauses", 
+                rule: "Use 'who' for people, 'which' for things, 'where' for places, 'whose' for possession.", 
+                example: "The boy who won is my friend. The book which I read is good.",
+                videoSrc: "RelativeClauses.mp4",
+                quizzes: [
+                    { q: "The car _______ is parked there is mine.", options: ["who", "which", "where"], correct: "which" },
+                    { q: "The teacher _______ wears glasses is nice.", options: ["who", "which", "whose"], correct: "who" },
+                    { q: "The city _______ I was born is beautiful.", options: ["who", "which", "where"], correct: "where" }
+                ],
+                game: { targetText: "Pop relative pronouns!", type: "bubble", targets: ["who", "which", "that", "where", "whose"], decoys: ["he", "it", "they", "we"] }
+            },
+            adv_5: {
+                title: "🏰 Reported Speech", 
+                rule: "Shift tenses backwards (Present -> Past).", 
+                example: "'I am happy' -> He said he was happy.",
+                videoSrc: "reported.mp4",
+                quizzes: [
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 1)",
+                        pairs: [
+                            { left: "'I am tired'", right: "He said he was tired." },
+                            { left: "'I can swim'", right: "She said she could swim." },
+                            { left: "'I will go'", right: "He said he would go." }
+                        ]
+                    },
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 2)",
+                        pairs: [
+                            { left: "'I like apples'", right: "She said she liked apples." },
+                            { left: "'We are playing'", right: "They said they were playing." },
+                            { left: "'I have a dog'", right: "He said he had a dog." }
+                        ]
+                    },
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 3)",
+                        pairs: [
+                            { left: "'It is raining'", right: "He said it was raining." },
+                            { left: "'I don't know'", right: "She said she didn't know." },
+                            { left: "'We can help'", right: "They said they could help." }
+                        ]
+                    }
+                ],
+                game: { targetText: "Pop reported speech verbs!", type: "bubble", targets: ["said", "told", "asked", "replied"], decoys: ["say", "tell", "ask", "reply"] }
+            },
+            adv_6: {
+                title: "🏃‍♂️ Gerunds & Infinitives", 
+                rule: "Some verbs are followed by -ing (enjoy), some by to+verb (want).", 
+                example: "I enjoy reading. I want to play.",
+                videoSrc: "Gerunds.mp4",
+                quizzes: [
+                    { type: "input", q: "I enjoy _______ (eat) pizza.", correct: "eating" },
+                    { type: "input", q: "She decided _______ (buy) a new car.", correct: "to buy" },
+                    { type: "input", q: "He avoids _______ (speak) in public.", correct: "speaking" }
+                ],
+                game: { targetText: "Pop gerunds (-ing)!", type: "bubble", targets: ["playing", "reading", "eating", "swimming"], decoys: ["to play", "to read", "play", "read"] }
+            }
+        };
+
+        // ==========================================
+        // 2. CORE STATE & LOCAL STORAGE SYNC
+        // ==========================================
+        let totalStars = 0;
+        let isVoiceEnabled = true; 
+        let unlockedItems = { hats: {} };
+        let activeCostume = { hat: null };
+
+        let activeStationKey = null;
+        let activeTopicData = null;
+        let currentLobbyFilter = 'beg';
+        
+        let currentQuestIndex = 0;
+        let questScore = 0;
+        let questFails = 0;
+        let questCleanupFns = []; // For cleaning up dynamic listeners (like window resize for SVG)
+
+        // Multi-Game Engine State
+        let isGameRunning = false;
+        let gameScore = 0;
+        let gameTime = 30;
+        let gameInterval = null;
+        let spawnInterval = null;
+        let currentMonsterTarget = null;
+        let currentRobotTarget = null;
+        let currentTreasureTarget = null;
+        let currentCatTarget = null;
+        let currentSpotTarget = null;
+
+        function loadGameState() {
+            const savedVoice = localStorage.getItem('missP_voice');
+            if (savedVoice !== null) isVoiceEnabled = savedVoice === 'true';
+
+            const savedStars = localStorage.getItem('missP_stars');
+            if (savedStars) totalStars = parseInt(savedStars);
+            
+            const savedHats = localStorage.getItem('missP_unlockedHats');
+            if (savedHats) unlockedItems = JSON.parse(savedHats);
+            
+            const savedActiveCostume = localStorage.getItem('missP_activeCostume');
+            if (savedActiveCostume) activeCostume = JSON.parse(savedActiveCostume);
+
+            updateUI();
+        }
+
+        function saveGameState() {
+            localStorage.setItem('missP_voice', isVoiceEnabled);
+            localStorage.setItem('missP_stars', totalStars);
+            localStorage.setItem('missP_unlockedHats', JSON.stringify(unlockedItems));
+            localStorage.setItem('missP_activeCostume', JSON.stringify(activeCostume));
+            updateUI();
+            showAutoSaveToast();
+        }
+
+        function clearGameState() {
+            localStorage.removeItem('missP_stars');
+            localStorage.removeItem('missP_unlockedHats');
+            localStorage.removeItem('missP_activeCostume');
+            totalStars = 0;
+            unlockedItems = { hats: {} };
+            activeCostume = { hat: null };
+            document.getElementById('resetModal').classList.add('hidden');
+            updateUI();
+            missPennySpeak("Progress has been reset!");
+        }
+
+        function showAutoSaveToast() {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-emerald-100 border-2 border-emerald-300 text-emerald-700 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2 toast-anim';
+            toast.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Auto-Saved!';
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+        }
+
+        function updateUI() {
+            document.getElementById('global-stars').innerText = totalStars;
+            
+            const btn = document.getElementById('voiceToggleBtn');
+            const icon = document.getElementById('voiceIcon');
+            const text = document.getElementById('voiceText');
+            if(isVoiceEnabled) {
+                btn.className = "text-xs font-bold bg-sky-200 text-sky-700 px-3 py-1 rounded-full hover:bg-sky-300 transition-colors flex items-center gap-1 shadow-sm";
+                icon.className = "fa-solid fa-volume-high";
+                text.innerText = "ON";
+            } else {
+                btn.className = "text-xs font-bold bg-slate-200 text-slate-500 px-3 py-1 rounded-full hover:bg-slate-300 transition-colors flex items-center gap-1 shadow-sm";
+                icon.className = "fa-solid fa-volume-xmark";
+                text.innerText = "OFF";
+            }
+            
+            ['superhero', 'detective'].forEach(hat => {
+                const btnElem = document.getElementById(`btn-hat-${hat}`);
+                const costSpan = document.getElementById(`cost-${hat}`);
+                if (unlockedItems.hats[hat]) {
+                    btnElem.classList.remove('bg-slate-50', 'border-slate-200');
+                    btnElem.classList.add('bg-emerald-50', 'border-emerald-200');
+                    if (activeCostume.hat === hat) {
+                        costSpan.innerText = "Equipped";
+                        costSpan.className = "text-xs font-bold text-emerald-600 mt-1";
+                        document.getElementById(`hat-${hat}`).classList.remove('hidden');
+                    } else {
+                        costSpan.innerText = "Click to Equip";
+                        costSpan.className = "text-xs font-bold text-slate-400 mt-1";
+                        document.getElementById(`hat-${hat}`).classList.add('hidden');
+                    }
+                } else {
+                    btnElem.classList.remove('bg-emerald-50', 'border-emerald-200');
+                    btnElem.classList.add('bg-slate-50', 'border-slate-200');
+                    costSpan.innerText = hat === 'superhero' ? "10 ⭐" : "20 ⭐";
+                    costSpan.className = "text-xs font-bold text-amber-500 mt-1";
+                    document.getElementById(`hat-${hat}`).classList.add('hidden');
+                }
+            });
+        }
+
+        function buyOrEquipHat(hatId, cost) {
+            if (unlockedItems.hats[hatId]) {
+                activeCostume.hat = activeCostume.hat === hatId ? null : hatId;
+                missPennySpeak(activeCostume.hat ? "How do I look?" : "Back to my natural hair!");
+            } else {
+                if (totalStars >= cost) {
+                    totalStars -= cost;
+                    unlockedItems.hats[hatId] = true;
+                    activeCostume.hat = hatId; 
+                    missPennySpeak("Thank you for the wonderful gift!");
+                    confetti({ particleCount: 50, spread: 40 });
+                } else {
+                    missPennySpeak("You need more stars to unlock this item!");
+                }
+            }
+            saveGameState();
+        }
+
+        // ==========================================
+        // 3. UI RENDERING (Lobby Tabs)
+        // ==========================================
+        function initLobby() {
+            filterLobby('beg');
+        }
+
+        function filterLobby(levelPrefix) {
+            currentLobbyFilter = levelPrefix;
+            
+            ['beg', 'int', 'adv'].forEach(lvl => {
+                const btn = document.getElementById(`tab-lvl-${lvl}`);
+                if (lvl === levelPrefix) {
+                    let colorClass = lvl === 'beg' ? 'emerald' : (lvl === 'int' ? 'amber' : 'rose');
+                    btn.className = `flex-1 py-2 rounded-xl font-bold text-sm bg-${colorClass}-100 text-${colorClass}-700 border-2 border-${colorClass}-300 transition-all`;
+                } else {
+                    btn.className = `flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all`;
+                }
+            });
+
+            const grid = document.getElementById('lobby-grid');
+            grid.innerHTML = '';
+            
+            let color = levelPrefix === 'beg' ? 'emerald' : (levelPrefix === 'int' ? 'amber' : 'rose');
+            
+            Object.keys(curriculum).forEach(key => {
+                if (key.startsWith(levelPrefix)) {
+                    const data = curriculum[key];
+                    grid.innerHTML += `
+                        <div onclick="openStation('${key}')" class="bg-${color}-50 border-2 border-${color}-200 p-4 rounded-2xl cursor-pointer hover:scale-105 hover:-translate-y-1 transition-all shadow-sm">
+                            <h4 class="font-bold text-${color}-800 text-sm">${data.title}</h4>
+                            <p class="text-[10px] text-slate-500 mt-2 flex justify-between">
+                                <span>${data.game ? '✅ Game Included' : '📖 Lesson & Quest'}</span>
+                                <span class="bg-${color}-200 text-${color}-700 px-2 rounded-full">Enter</span>
+                            </p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function openStation(key) {
+            activeStationKey = key;
+            activeTopicData = curriculum[key];
+            
+            document.getElementById('view_lobby').classList.add('hidden');
+            document.getElementById('view_station').classList.remove('hidden');
+            document.getElementById('view_station').classList.add('flex');
+            document.getElementById('stationTitle').innerText = activeTopicData.title;
+
+            const gameTabBtn = document.getElementById('tab-btn-game');
+            if (activeTopicData.game) gameTabBtn.classList.remove('hidden');
+            else gameTabBtn.classList.add('hidden');
+
+            switchTab('lesson');
+        }
+
+        function closeStation() {
+            stopGame();
+            questCleanupFns.forEach(fn => fn());
+            questCleanupFns = [];
+            
+            // 停止任何播放中的影片
+            const videoEl = document.querySelector('video');
+            if (videoEl) videoEl.pause();
+            
+            document.getElementById('view_station').classList.add('hidden');
+            document.getElementById('view_station').classList.remove('flex');
+            document.getElementById('view_lobby').classList.remove('hidden');
+            missPennySpeak("Welcome back to the map! Where to next?");
+            
+            const content = document.getElementById('lessonContentContainer');
+            content.innerHTML = '';
+        }
+
+        function switchTab(tabName) {
+            if(tabName !== 'game') stopGame();
+
+            // 如果離開 Lesson 分頁，自動暫停影片
+            if(tabName !== 'lesson') {
+                const videoEl = document.querySelector('video');
+                if (videoEl) videoEl.pause();
+            }
+
+            ['lesson', 'quest', 'game'].forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (!btn) return;
+                if (t === tabName) {
+                    btn.className = "flex-1 py-3 text-center border-b-4 border-amber-400 text-amber-600 bg-white transition-all flex items-center justify-center gap-2 font-bold";
+                } else {
+                    btn.className = "flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100";
+                }
+            });
+
+            ['lesson', 'quest', 'game'].forEach(t => {
+                const content = document.getElementById(`tab-content-${t}`);
+                if (!content) return;
+                if (t === tabName) content.classList.remove('hidden', '!hidden');
+                else content.classList.add('hidden');
+            });
+
+            if (tabName === 'lesson') renderLesson();
+            if (tabName === 'quest') startQuest();
+            if (tabName === 'game') setupGameArea();
+        }
+
+        // ==========================================
+        // 4. TAB 1: LESSON LOGIC
+        // ==========================================
+        function renderLesson() {
+            const content = document.getElementById('lessonContentContainer');
+            content.innerHTML = "";
+
+            const renderTextFallback = () => {
+                content.innerHTML = `
+                    <div class="bg-yellow-50 border-4 border-yellow-200 rounded-xl p-6 w-full shadow-inner text-center">
+                        <span class="text-4xl block mb-2">✨</span>
+                        <p class="text-slate-700 text-lg font-bold leading-relaxed">${activeTopicData.rule}</p>
+                    </div>
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 shadow-sm w-full mt-4">
+                        <h4 class="text-blue-700 font-bold text-sm uppercase tracking-wider mb-2 text-center">Example</h4>
+                        <p class="text-slate-700 text-xl font-mono text-center bg-white p-3 rounded-lg border border-blue-100">${activeTopicData.example}</p>
+                    </div>
+                `;
+                missPennySpeak(`Let's learn about ${activeTopicData.title}! ${activeTopicData.rule} For example: ${activeTopicData.example}`);
+            };
+
+            if (activeTopicData.videoSrc) {
+                const videoElement = document.createElement('video');
+                videoElement.src = activeTopicData.videoSrc;
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+                videoElement.className = "w-full aspect-video outline-none";
+                
+                videoElement.onerror = function() {
+                    console.warn(`Video load failed: ${activeTopicData.videoSrc}. Using text fallback.`);
+                    renderTextFallback();
+                };
+
+                const playPromise = videoElement.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Autoplay prevented or video missing. User must interact.", error);
+                    });
+                }
+
+                const videoContainer = document.createElement('div');
+                videoContainer.className = "w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg bg-black border-4 border-sky-100";
+                videoContainer.appendChild(videoElement);
+                content.appendChild(videoContainer);
+
+            } else {
+                renderTextFallback();
+            }
+        }
+
+        // ==========================================
+        // 5. TAB 2: QUEST LOGIC (With Multiple Input Types)
+        // ==========================================
+        function startQuest() {
+            currentQuestIndex = 0;
+            questScore = 0;
+            document.getElementById('questScore').innerText = questScore;
+            renderQuestQuestion();
+            missPennySpeak("Quest started! Do your best!");
+        }
+
+        function renderQuestQuestion() {
+            // Clean up any lingering dynamic listeners (like window resize for SVG lines)
+            questCleanupFns.forEach(fn => fn());
+            questCleanupFns = [];
+
+            const qData = activeTopicData.quizzes[currentQuestIndex];
+            questFails = 0; 
+            
+            document.getElementById('questProgressTag').innerText = `Quest ${currentQuestIndex + 1}/${activeTopicData.quizzes.length}`;
+            document.getElementById('questNextContainer').classList.add('hidden');
+            
+            const qContainer = document.getElementById('questQuestionText');
+            const optionsContainer = document.getElementById('questOptionsContainer');
+            
+            optionsContainer.innerHTML = "";
+            qContainer.innerText = qData.q;
+            
+            // --- TYPE 1: MATCHING PUZZLE GAME ---
+            if (qData.type === 'matching') {
+                const container = document.createElement('div');
+                container.className = "relative w-full flex justify-between gap-4 mt-2 max-w-2xl mx-auto";
+                
+                // SVG Layer for drawing connecting lines
+                const svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svgLayer.setAttribute("class", "absolute inset-0 w-full h-full pointer-events-none z-0");
+                container.appendChild(svgLayer);
+                
+                const leftCol = document.createElement('div');
+                leftCol.className = "flex flex-col gap-3 w-1/2 z-10";
+                
+                const rightCol = document.createElement('div');
+                rightCol.className = "flex flex-col gap-3 w-1/2 z-10";
+                
+                const pairs = qData.pairs;
+                const leftItems = pairs.map(p => p.left);
+                const rightItems = pairs.map(p => p.right).sort(() => Math.random() - 0.5); // Shuffle right
+                
+                let selectedLeftBtn = null;
+                let matchedPairs = []; // Stores { l: btn, r: btn }
+
+                const drawLines = () => {
+                    svgLayer.innerHTML = '';
+                    const containerRect = container.getBoundingClientRect();
+                    matchedPairs.forEach(pair => {
+                        const lRect = pair.l.getBoundingClientRect();
+                        const rRect = pair.r.getBoundingClientRect();
+                        
+                        const x1 = lRect.right - containerRect.left;
+                        const y1 = lRect.top + lRect.height / 2 - containerRect.top;
+                        const x2 = rRect.left - containerRect.left;
+                        const y2 = rRect.top + rRect.height / 2 - containerRect.top;
+                        
+                        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", x1);
+                        line.setAttribute("y1", y1);
+                        line.setAttribute("x2", x2);
+                        line.setAttribute("y2", y2);
+                        line.setAttribute("stroke", "#34d399"); // Tailwind emerald-400
+                        line.setAttribute("stroke-width", "4");
+                        line.setAttribute("stroke-linecap", "round");
+                        line.setAttribute("class", "animated-line");
+                        svgLayer.appendChild(line);
+                    });
+                };
+
+                const checkWin = () => {
+                    if (matchedPairs.length === pairs.length) {
+                        let earned = 10; 
+                        questScore += earned; totalStars += earned; 
+                        document.getElementById('questScore').innerText = questScore; 
+                        saveGameState();
+                        missPennySpeak("Perfect matching!");
+                        confetti({ particleCount: 50, spread: 60 });
+                        document.getElementById('questNextContainer').classList.remove('hidden');
+                    }
+                };
+
+                const leftBtns = [];
+                const rightBtns = [];
+
+                leftItems.forEach(text => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-slate-200 p-3 rounded-xl font-bold text-slate-700 shadow-sm text-sm hover:border-sky-400 transition-colors text-left flex items-center";
+                    btn.innerText = text;
+                    btn.dataset.text = text;
+                    btn.onclick = () => {
+                        if(btn.disabled) return;
+                        leftBtns.forEach(b => { if(!b.disabled) b.classList.remove('border-sky-400', 'bg-sky-50') });
+                        btn.classList.add('border-sky-400', 'bg-sky-50');
+                        selectedLeftBtn = btn;
+                    };
+                    leftBtns.push(btn);
+                    leftCol.appendChild(btn);
+                });
+
+                rightItems.forEach(text => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-slate-200 p-3 rounded-xl font-bold text-slate-700 shadow-sm text-sm hover:border-sky-400 transition-colors text-left flex items-center justify-end";
+                    btn.innerText = text;
+                    btn.dataset.text = text;
+                    btn.onclick = () => {
+                        if(btn.disabled) return;
+                        if(!selectedLeftBtn) {
+                            missPennySpeak("Please select a sentence on the left first!");
+                            return;
+                        }
+                        
+                        // Validate match
+                        const correctRight = pairs.find(p => p.left === selectedLeftBtn.dataset.text).right;
+                        if(btn.dataset.text === correctRight) {
+                            // Match success
+                            selectedLeftBtn.disabled = true;
+                            btn.disabled = true;
+                            selectedLeftBtn.classList.replace('border-sky-400', 'border-emerald-400');
+                            selectedLeftBtn.classList.replace('bg-sky-50', 'bg-emerald-50');
+                            btn.classList.replace('border-slate-200', 'border-emerald-400');
+                            btn.classList.add('bg-emerald-50');
+                            
+                            matchedPairs.push({ l: selectedLeftBtn, r: btn });
+                            selectedLeftBtn = null;
+                            drawLines();
+                            checkWin();
+                        } else {
+                            // Match fail
+                            btn.classList.add('border-rose-400', 'bg-rose-50');
+                            setTimeout(() => {
+                                if(!btn.disabled) btn.classList.remove('border-rose-400', 'bg-rose-50');
+                            }, 500);
+                            missPennySpeak("Not quite! Try finding another match.");
+                        }
+                    };
+                    rightBtns.push(btn);
+                    rightCol.appendChild(btn);
+                });
+
+                container.appendChild(leftCol);
+                container.appendChild(rightCol);
+                optionsContainer.appendChild(container);
+
+                window.addEventListener('resize', drawLines);
+                questCleanupFns.push(() => window.removeEventListener('resize', drawLines));
+            } 
+            // --- TYPE 2: INPUT FIELD ---
+            else if (qData.type === 'input') {
+                const inputContainer = document.createElement('div');
+                inputContainer.className = "flex flex-col gap-4 w-full max-w-md mx-auto mt-4";
+                
+                const inputField = document.createElement('input');
+                inputField.type = "text";
+                inputField.placeholder = "Type your answer...";
+                inputField.className = "w-full text-center text-xl bg-white border-4 border-slate-200 focus:border-sky-400 p-4 rounded-xl font-bold text-slate-700 outline-none transition-all shadow-inner";
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.className = "w-full bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all";
+                submitBtn.innerText = "Submit Answer";
+                
+                const checkInputAnswer = () => {
+                    if (submitBtn.disabled) return;
+                    const userAns = inputField.value.trim().toLowerCase();
+                    const correctAns = qData.correct.toLowerCase();
+
+                    if (userAns === correctAns) {
+                        inputField.disabled = true;
+                        submitBtn.disabled = true;
+                        inputField.classList.remove('border-slate-200', 'focus:border-sky-400');
+                        inputField.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-800');
+                        submitBtn.classList.replace('bg-sky-400', 'bg-emerald-500');
+                        submitBtn.classList.replace('hover:bg-sky-500', 'hover:bg-emerald-600');
+                        submitBtn.innerText = "Correct!";
+                        
+                        let earned = (questFails === 0) ? 5 : 2;
+                        questScore += earned; totalStars += earned; 
+                        document.getElementById('questScore').innerText = questScore; 
+                        saveGameState();
+                        missPennySpeak("Correct!");
+                        confetti({ particleCount: 30, spread: 50 });
+                        document.getElementById('questNextContainer').classList.remove('hidden');
+                    } else {
+                        questFails++;
+                        inputField.classList.add('border-rose-400', 'bg-rose-50', 'text-rose-800');
+                        setTimeout(() => inputField.classList.remove('border-rose-400', 'bg-rose-50', 'text-rose-800'), 500);
+
+                        if (questFails === 1) {
+                            missPennySpeak(`Not quite! Remember: ${activeTopicData.rule} Try again!`);
+                        } else if (questFails >= 2) {
+                            inputField.disabled = true;
+                            submitBtn.disabled = true;
+                            inputField.value = qData.correct;
+                            inputField.classList.remove('border-slate-200', 'focus:border-sky-400', 'border-rose-400', 'bg-rose-50', 'text-rose-800');
+                            inputField.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-800');
+                            missPennySpeak(`Oops! The correct answer is ${qData.correct}.`);
+                            document.getElementById('questNextContainer').classList.remove('hidden');
+                        }
+                    }
+                };
+
+                submitBtn.onclick = checkInputAnswer;
+                inputField.onkeypress = (e) => { if(e.key === 'Enter') checkInputAnswer(); };
+
+                inputContainer.appendChild(inputField);
+                inputContainer.appendChild(submitBtn);
+                optionsContainer.appendChild(inputContainer);
+                
+                setTimeout(() => inputField.focus(), 100);
+
+            } 
+            // --- TYPE 3: MULTIPLE CHOICE ---
+            else {
+                const grid = document.createElement('div');
+                grid.className = "grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl mx-auto";
+                
+                qData.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-center bg-white border-2 border-slate-200 hover:bg-sky-50 hover:border-sky-300 p-4 rounded-xl font-bold text-slate-700 transition-all shadow-sm";
+                    btn.innerText = opt;
+                    btn.dataset.val = opt; 
+                    
+                    btn.onclick = () => {
+                        if (btn.disabled) return;
+                        
+                        if (btn.dataset.val === qData.correct) {
+                            Array.from(grid.children).forEach(c => c.disabled = true);
+                            btn.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300');
+                            btn.classList.add('bg-emerald-100', 'border-emerald-400', 'text-emerald-800');
+                            
+                            let earned = (questFails === 0) ? 5 : 2;
+                            questScore += earned; totalStars += earned; 
+                            document.getElementById('questScore').innerText = questScore; 
+                            saveGameState();
+                            missPennySpeak("Correct!");
+                            confetti({ particleCount: 30, spread: 50 });
+                            document.getElementById('questNextContainer').classList.remove('hidden');
+                        } else {
+                            btn.disabled = true;
+                            btn.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300');
+                            btn.classList.add('bg-rose-100', 'border-rose-400', 'text-rose-800', 'opacity-50');
+                            questFails++;
+                            
+                            if (questFails === 1) {
+                                missPennySpeak(`Not quite! Remember: ${activeTopicData.rule} Try again!`);
+                            } else if (questFails >= 2) {
+                                Array.from(grid.children).forEach(c => c.disabled = true);
+                                missPennySpeak(`Oops! The correct answer is ${qData.correct}.`);
+                                
+                                Array.from(grid.children).forEach(c => {
+                                    if (c.dataset.val === qData.correct) {
+                                        c.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300', 'opacity-50', 'bg-rose-100', 'border-rose-400', 'text-rose-800');
+                                        c.classList.add('bg-emerald-100', 'border-emerald-400', 'text-emerald-800');
+                                    }
+                                });
+                                document.getElementById('questNextContainer').classList.remove('hidden');
+                            }
+                        }
+                    };
+                    grid.appendChild(btn);
+                });
+                optionsContainer.appendChild(grid);
+            }
+        }
+
+        function nextQuestQuestion() {
+            currentQuestIndex++;
+            if (currentQuestIndex < activeTopicData.quizzes.length) {
+                renderQuestQuestion();
+            } else {
+                missPennySpeak(`Quest complete! You earned ${questScore} stars!`);
+                if (activeTopicData.game) switchTab('game');
+                else closeStation();
+            }
+        }
+
+        // ==========================================
+        // 6. TAB 3: MULTI-GAME ENGINE
+        // ==========================================
+        function setupGameArea() {
+            stopGame();
+            if(!activeTopicData || !activeTopicData.game) return;
+
+            const overlay = document.getElementById('gameStartOverlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = `
+                    <button onclick="startGame()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold text-xl py-4 px-8 rounded-3xl shadow-xl transform hover:scale-110 transition-all border-4 border-purple-300 cursor-pointer">
+                        Start Game!
+                    </button>
+                `;
+            }
+            
+            document.getElementById('gameTargetText').innerText = activeTopicData.game.targetText;
+            document.getElementById('gameScore').innerText = "0";
+            document.getElementById('gameTimer').innerText = "30s";
+
+            document.getElementById('bubble-container').classList.add('hidden');
+            document.getElementById('monster-container').classList.add('hidden');
+            document.getElementById('robot-container').classList.add('hidden');
+            document.getElementById('treasure-container').classList.add('hidden');
+            document.getElementById('catbox-container').classList.add('hidden');
+            document.getElementById('spot-container').classList.add('hidden');
+
+            const gType = activeTopicData.game.type || 'bubble';
+            if (gType === 'bubble') document.getElementById('bubble-container').classList.remove('hidden');
+            else if (gType === 'monster') document.getElementById('monster-container').classList.remove('hidden');
+            else if (gType === 'robot') document.getElementById('robot-container').classList.remove('hidden');
+            else if (gType === 'treasure') document.getElementById('treasure-container').classList.remove('hidden');
+            else if (gType === 'catbox') document.getElementById('catbox-container').classList.remove('hidden');
+            else if (gType === 'spot') document.getElementById('spot-container').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const overlay = document.getElementById('gameStartOverlay');
+            if (overlay) overlay.classList.add('hidden');
+            
+            gameScore = 0; 
+            gameTime = 30; 
+            isGameRunning = true;
+            document.getElementById('gameScore').innerText = gameScore;
+            missPennySpeak("Ready, Set, Go!");
+
+            gameInterval = setInterval(() => {
+                gameTime--;
+                document.getElementById('gameTimer').innerText = gameTime + "s";
+                if (gameTime <= 0) endGame();
+            }, 1000);
+
+            const gType = activeTopicData.game.type || 'bubble';
+            if (gType === 'bubble') spawnInterval = setInterval(spawnBubble, 800);
+            else if (gType === 'monster') nextMonsterWord();
+            else if (gType === 'robot') nextRobotWord();
+            else if (gType === 'treasure') nextTreasureWord();
+            else if (gType === 'catbox') nextCatSentence();
+            else if (gType === 'spot') nextSpotSentence();
+        }
+
+        function stopGame() {
+            isGameRunning = false;
+            if (gameInterval) clearInterval(gameInterval); 
+            if (spawnInterval) clearInterval(spawnInterval);
+            
+            const bContainer = document.getElementById('bubble-container');
+            if(bContainer) {
+                Array.from(bContainer.children).forEach(c => {
+                    if (c.id !== 'gameStartOverlay') c.remove();
+                });
+            }
+            const mwDisplay = document.getElementById('monster-word-display');
+            if(mwDisplay) mwDisplay.classList.add('hidden');
+            
+            const rtDisplay = document.getElementById('robot-target-display');
+            if(rtDisplay) rtDisplay.innerText = "";
+            
+            const twDisplay = document.getElementById('treasure-word-display');
+            if(twDisplay) twDisplay.classList.add('hidden');
+            
+            // Reset Cat position & size
+            const cat = document.getElementById('the-cat');
+            if(cat) {
+                cat.style.left = '15%'; cat.style.bottom = '10px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            }
+        }
+
+        function endGame() {
+            stopGame();
+            const overlay = document.getElementById('gameStartOverlay');
+            overlay.classList.remove('hidden');
+            overlay.innerHTML = `
+                <div class="text-center bg-white p-6 rounded-3xl shadow-2xl border-4 border-amber-300 z-50">
+                    <h3 class="kids-title text-3xl text-amber-500 mb-2">Time's Up!</h3>
+                    <p class="text-xl text-slate-700 font-bold mb-4">You scored <span class="text-purple-600">${gameScore}</span> points!</p>
+                    <button onclick="closeStation()" class="bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-8 rounded-2xl shadow-md cursor-pointer">Finish Lesson</button>
+                </div>
+            `;
+            totalStars += Math.floor(gameScore / 2);
+            saveGameState();
+            missPennySpeak(`Amazing! You scored ${gameScore} points!`);
+            confetti({ particleCount: 100, spread: 70 });
+        }
+
+        // -- Bubble Logic --
+        function spawnBubble() {
+            if(!isGameRunning) return;
+            const container = document.getElementById('bubble-container');
+            const isTarget = Math.random() > 0.4; 
+            const wordList = isTarget ? activeTopicData.game.targets : activeTopicData.game.decoys;
+            const word = wordList[Math.floor(Math.random() * wordList.length)];
+
+            const bubble = document.createElement('div');
+            const size = 60 + Math.random() * 30;
+            const left = Math.random() * (container.clientWidth - size);
+            
+            const colors = ['bg-rose-400', 'bg-amber-400', 'bg-emerald-400', 'bg-purple-400', 'bg-pink-400'];
+            bubble.className = `bubble-pop ${colors[Math.floor(Math.random() * colors.length)]} text-white border-2 border-white text-center flex items-center justify-center p-1 leading-tight font-bold z-10`;
+            bubble.style.width = `${size}px`; bubble.style.height = `${size}px`;
+            bubble.style.left = `${left}px`; bubble.style.bottom = `-50px`;
+            bubble.style.animation = `floatUp ${3.5 + Math.random() * 3}s linear forwards`;
+            
+            let fSize = size * 0.25;
+            if (word.length > 5) fSize = size * 0.18;
+            bubble.style.fontSize = `${fSize}px`;
+            bubble.innerText = word;
+
+            bubble.onclick = function() {
+                if (isTarget) {
+                    gameScore += 2;
+                    bubble.style.transform = "scale(1.5)"; bubble.style.opacity = "0";
+                    setTimeout(() => bubble.remove(), 150);
+                } else {
+                    gameScore -= 1;
+                    bubble.style.backgroundColor = "red";
+                }
+                document.getElementById('gameScore').innerText = gameScore;
+            };
+
+            container.appendChild(bubble);
+            setTimeout(() => { if (bubble.parentNode) bubble.remove(); }, 7000);
+        }
+
+        // -- Monster Logic (Articles) --
+        function nextMonsterWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentMonsterTarget = targets[Math.floor(Math.random() * targets.length)];
+            const display = document.getElementById('monster-word-display');
+            display.innerText = currentMonsterTarget.word;
+            display.classList.remove('hidden');
+        }
+
+        function feedMonster(selectedType) {
+            if (!isGameRunning || !currentMonsterTarget) return;
+            const emoji = document.getElementById('monster-emoji');
+            
+            if (selectedType === currentMonsterTarget.type) {
+                gameScore += 3;
+                emoji.innerText = "🥰"; emoji.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => { emoji.innerText = "👾"; emoji.classList.remove('animate-bounce'); }, 500);
+            } else {
+                gameScore -= 1;
+                emoji.innerText = "🤢";
+                setTimeout(() => emoji.innerText = "👾", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextMonsterWord();
+        }
+
+        // -- Robot Logic (Be-Verbs) --
+        function nextRobotWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentRobotTarget = targets[Math.floor(Math.random() * targets.length)];
+            document.getElementById('robot-target-display').innerText = currentRobotTarget.word;
+        }
+
+        function powerRobot(selectedType) {
+            if (!isGameRunning || !currentRobotTarget) return;
+            const emoji = document.getElementById('robot-emoji');
+            
+            if (selectedType === currentRobotTarget.type) {
+                gameScore += 3;
+                emoji.innerText = "⚡🤖⚡"; emoji.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => { emoji.innerText = "🤖"; emoji.classList.remove('animate-bounce'); }, 500);
+            } else {
+                gameScore -= 1;
+                emoji.innerText = "💥🤖";
+                setTimeout(() => emoji.innerText = "🤖", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextRobotWord();
+        }
+
+        // -- Treasure Chest Logic (Plurals) --
+        function nextTreasureWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentTreasureTarget = targets[Math.floor(Math.random() * targets.length)];
+            const display = document.getElementById('treasure-word-display');
+            display.innerText = currentTreasureTarget.word;
+            display.classList.remove('hidden');
+        }
+
+        function openChest(selectedType) {
+            if (!isGameRunning || !currentTreasureTarget) return;
+            const chestBtn = document.getElementById(`chest-${selectedType}`);
+            
+            if (selectedType === currentTreasureTarget.type) {
+                gameScore += 3;
+                chestBtn.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => chestBtn.classList.remove('animate-bounce'), 500);
+            } else {
+                gameScore -= 1;
+                chestBtn.style.filter = "sepia(1) hue-rotate(-50deg) saturate(3)"; 
+                setTimeout(() => chestBtn.style.filter = "none", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextTreasureWord();
+        }
+
+        // -- Cat & Box Logic (Prepositions) --
+        function nextCatSentence() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentCatTarget = targets[Math.floor(Math.random() * targets.length)];
+            
+            const display = document.getElementById('catbox-sentence-display');
+            let htmlSentence = currentCatTarget.sentence.replace(
+                currentCatTarget.word.toUpperCase(), 
+                `<span class="text-pink-500 underline underline-offset-4">${currentCatTarget.word.toUpperCase()}</span>`
+            );
+            display.innerHTML = htmlSentence;
+            
+            const cat = document.getElementById('the-cat');
+            cat.style.left = '15%'; cat.style.bottom = '10px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+        }
+
+        function moveCat(position) {
+            if (!isGameRunning || !currentCatTarget) return;
+            const cat = document.getElementById('the-cat');
+            
+            cat.style.left = '50%';
+            
+            if (position === 'on') {
+                cat.style.bottom = '165px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            } else if (position === 'in') {
+                cat.style.bottom = '75px'; cat.style.zIndex = '5'; cat.style.transform = 'translate(-50%, 0) scale(0.6)';
+            } else if (position === 'under') {
+                cat.style.bottom = '-5px'; cat.style.zIndex = '5'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            }
+
+            setTimeout(() => {
+                if (position === currentCatTarget.word) {
+                    gameScore += 3;
+                    cat.innerText = "😻";
+                    confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                    setTimeout(() => cat.innerText = "🐱", 600);
+                } else {
+                    gameScore -= 1;
+                    cat.innerText = "🙀";
+                    setTimeout(() => cat.innerText = "🐱", 600);
+                }
+                document.getElementById('gameScore').innerText = gameScore;
+                setTimeout(nextCatSentence, 800);
+            }, 300);
+        }
+
+        // -- Spot The Error Logic (Proofreading) --
+        function nextSpotSentence() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentSpotTarget = targets[Math.floor(Math.random() * targets.length)];
+            
+            const box = document.getElementById('spot-sentence-box');
+            box.innerHTML = '';
+            document.getElementById('spot-feedback').innerText = '';
+
+            currentSpotTarget.sentence.forEach((word, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "bg-white border-2 border-slate-200 text-slate-700 font-bold text-xl px-4 py-2 rounded-xl shadow-sm hover:bg-sky-50 hover:border-sky-300 hover:-translate-y-1 transition-all cursor-pointer";
+                btn.innerText = word;
+                
+                btn.onclick = () => {
+                    if (!isGameRunning) return;
+                    Array.from(box.children).forEach(c => c.disabled = true);
+                    
+                    if (idx === currentSpotTarget.wrongIdx) {
+                        gameScore += 4;
+                        btn.className = "bg-emerald-400 border-2 border-emerald-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md scale-110 transition-all";
+                        btn.innerText = currentSpotTarget.correction;
+                        document.getElementById('spot-feedback').innerHTML = `<span class="text-emerald-500">Correct! 🌟</span>`;
+                        confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+                    } else {
+                        gameScore -= 2;
+                        btn.className = "bg-rose-400 border-2 border-rose-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md transition-all";
+                        document.getElementById('spot-feedback').innerHTML = `<span class="text-rose-500">Oops! That wasn't the mistake.</span>`;
+                        
+                        const correctBtn = box.children[currentSpotTarget.wrongIdx];
+                        correctBtn.className = "bg-emerald-400 border-2 border-emerald-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md transition-all opacity-80";
+                        correctBtn.innerText = currentSpotTarget.correction;
+                    }
+                    
+                    document.getElementById('gameScore').innerText = gameScore;
+                    setTimeout(nextSpotSentence, 1500);
+                };
+                
+                box.appendChild(btn);
+            });
+        }
+
+        // ==========================================
+        // 7. UTILS & INIT
+        // ==========================================
+        function toggleVoice() {
+            isVoiceEnabled = !isVoiceEnabled;
+            saveGameState();
+            if (!isVoiceEnabled && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); 
+            } else if (isVoiceEnabled) {
+                missPennySpeak("Voice is on!");
+            }
+        }
+
+        function missPennySpeak(text) {
+            const img = document.getElementById('teacherImageReal');
+            const svgImg = document.getElementById('teacherImage');
+            document.getElementById('speechText').innerText = text;
+            
+            if (!isVoiceEnabled) return; 
+            
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "en-US"; utterance.rate = 0.95;
+                utterance.onstart = () => { img.classList.add('talking-anim'); svgImg.classList.add('talking-anim'); };
+                utterance.onend = () => { img.classList.remove('talking-anim'); svgImg.classList.remove('talking-anim'); };
+                utterance.onerror = () => { img.classList.remove('talking-anim'); svgImg.classList.remove('talking-anim'); };
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Control') {
+                totalStars += 100;
+                saveGameState();
+                missPennySpeak("Developer shortcut! You got 100 stars!");
+                confetti();
+            }
+        });
+
+        // Initialize
+        loadGameState();
+        initLobby();
+        setTimeout(() => missPennySpeak("Welcome to Grammar Island! Choose a level to start learning!"), 1000);
+
+    </script>
+</body>
+</html>
