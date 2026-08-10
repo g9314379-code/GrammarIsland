@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grammar Island with Miss P</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;700&display=swap');
+        body { font-family: 'Quicksand', sans-serif; background-color: #f1f5f9; }
+        .kids-title { font-family: 'Fredoka One', cursive; }
+        
+        /* Bubble Game Animations */
+        @keyframes floatUp { 
+            0% { transform: translateY(0) scale(0.5); opacity: 0; } 
+            10% { opacity: 1; transform: translateY(-30px) scale(1); } 
+            90% { opacity: 1; transform: translateY(-350px) scale(1); } 
+            100% { transform: translateY(-400px) scale(1.2); opacity: 0; } 
+        }
+        .bubble-pop { 
+            position: absolute; border-radius: 50%; cursor: pointer; 
+            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .bubble-pop:active { transform: scale(0.8); }
+
+        /* Miss P Talk Animation */
+        @keyframes talk-bounce {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.02) translateY(-4px); }
+        }
+        .talking-anim { animation: talk-bounce 0.4s infinite ease-in-out; }
+        
+        /* Auto-Save Toast Animation */
+        @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .toast-anim { animation: slideUpFade 3s ease-in-out forwards; }
+
+        /* SVG Line drawing stroke animation */
+        @keyframes drawLine {
+            from { stroke-dashoffset: 100%; }
+            to { stroke-dashoffset: 0%; }
+        }
+        .animated-line {
+            stroke-dasharray: 100%;
+            animation: drawLine 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-4">
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-6xl bg-white rounded-3xl shadow-md border-b-4 border-amber-200 px-6 py-4 flex justify-between items-center mb-6 relative z-50">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="closeStation()">
+            <span class="text-4xl animate-bounce">🏝️</span>
+            <div>
+                <h1 class="kids-title text-2xl text-amber-500 tracking-wide">Grammar Island</h1>
+                <p class="text-xs text-emerald-600 font-bold uppercase tracking-widest">with Miss P</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-4 bg-amber-50 px-5 py-2 rounded-full border-2 border-amber-200 mr-2">
+                <span class="text-2xl animate-pulse">⭐</span>
+                <span id="global-stars" class="font-bold text-amber-600 text-xl">0</span>
+                <span class="text-xs font-bold text-amber-500 uppercase">Stars</span>
+            </div>
+            <button onclick="document.getElementById('resetModal').classList.remove('hidden')" class="bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-500 p-2 rounded-full transition-colors" title="Reset Progress">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Reset Warning Modal -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm flex">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border-4 border-rose-200">
+            <div class="text-5xl mb-4">⚠️</div>
+            <h3 class="kids-title text-2xl text-rose-500 mb-2">Reset Progress?</h3>
+            <p class="text-slate-600 mb-6 font-bold">This will delete all your stars and items! Are you sure?</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="document.getElementById('resetModal').classList.add('hidden')" class="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-full transition-colors">Cancel</button>
+                <button onclick="clearGameState()" class="px-6 py-2 bg-rose-400 hover:bg-rose-500 text-white font-bold rounded-full transition-colors shadow-md">Yes, Reset!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="w-full max-w-6xl flex flex-col lg:flex-row gap-6 items-start flex-grow">
+        
+        <!-- LEFT PANEL: Avatar & Wardrobe -->
+        <section class="w-full lg:w-1/3 bg-white rounded-3xl border-4 border-sky-200 p-6 shadow-lg flex flex-col items-center z-40">
+            <div class="w-full bg-sky-50 border-2 border-sky-100 rounded-2xl p-4 mb-4 shadow-inner text-slate-700 relative">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-1.5 text-sky-500 text-xs font-bold uppercase tracking-wider">
+                        <i class="fa-solid fa-comment-dots"></i> Miss P:
+                    </div>
+                    <button id="voiceToggleBtn" onclick="toggleVoice()" class="text-xs font-bold bg-sky-200 text-sky-700 px-3 py-1 rounded-full hover:bg-sky-300 transition-colors flex items-center gap-1 shadow-sm">
+                        <i id="voiceIcon" class="fa-solid fa-volume-high"></i> <span id="voiceText">ON</span>
+                    </button>
+                </div>
+                <p id="speechText" class="text-sm font-semibold">Welcome to Grammar Island! Walk to a portal or click on it to start learning!</p>
+            </div>
+
+            <!-- Avatar Frame -->
+            <div class="relative w-56 h-56 rounded-full flex items-center justify-center bg-pink-50 border-4 border-pink-200 shadow-inner overflow-hidden mb-6">
+                <!-- Avatar Image with Fallback to SVG -->
+                <img id="teacherImageReal" src="Gemini_Generated_Image_7mdekx7mdekx7mde.png" onerror="this.style.display='none'; document.getElementById('teacherImage').style.display='block';" alt="Miss P" class="w-full h-full object-cover rounded-full z-10 transition-transform duration-300">
+                
+                <svg id="teacherImage" style="display:none;" viewBox="0 0 200 200" class="w-full h-full object-cover z-10">
+                    <path d="M40,100 C35,50 60,20 100,20 C140,20 165,50 160,100 L160,180 C160,190 140,190 140,180 L60,180 C60,190 40,190 40,180 Z" fill="#2d2a26"/>
+                    <rect x="85" y="110" width="30" height="40" fill="#fcdbb3" rx="10" />
+                    <path d="M60,150 Q100,160 140,150 L160,180 Q100,200 40,180 Z" fill="#fcdbb3"/>
+                    <ellipse cx="100" cy="94" rx="48" ry="46" fill="#fcdbb3"/>
+                    <path d="M52,94 C48,40 70,25 100,25 C130,25 152,40 148,94 C142,40 110,30 90,30 C70,30 58,40 52,94" fill="#2d2a26"/>
+                    <path d="M52,94 Q62,114 67,150 Q62,124 52,94" fill="#2d2a26"/>
+                    <path d="M148,94 Q138,114 133,150 Q138,124 148,94" fill="#2d2a26"/>
+                    <path d="M72,74 Q80,69 88,74" fill="none" stroke="#2d2a26" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M112,74 Q120,69 128,74" fill="none" stroke="#2d2a26" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="82" cy="84" r="6" fill="#000" />
+                    <circle cx="118" cy="84" r="6" fill="#000" />
+                    <circle cx="80" cy="82" r="1.5" fill="#fff" />
+                    <circle cx="116" cy="82" r="1.5" fill="#fff" />
+                    <ellipse cx="68" cy="92" rx="8" ry="5" fill="#ffb6b9" opacity="0.8" />
+                    <ellipse cx="132" cy="92" rx="8" ry="5" fill="#ffb6b9" opacity="0.8" />
+                    <path d="M98,99 Q100,102 102,99" fill="none" stroke="#d4a373" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M85,114 Q100,124 115,114" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M50,155 Q100,170 150,155 C165,160 170,170 170,190 L30,190 C30,170 35,160 50,155 Z" fill="#93c5fd" />
+                </svg>
+
+                <!-- Hat Overlays (SVG) -->
+                <div id="hat-superhero" class="absolute top-[8%] left-[50%] transform -translate-x-1/2 w-[55%] hidden z-20 pointer-events-none">
+                    <svg viewBox="0 0 100 50" class="w-full h-full drop-shadow-md">
+                        <path d="M5,42 L25,24 L50,12 L75,24 L95,42 C75,34 25,34 5,42 Z" fill="#FBBF24" stroke="#D97706" stroke-width="2.5" stroke-linejoin="round"/>
+                        <polygon points="50,16 53,23 60,23 55,27 57,34 50,30 43,34 45,27 40,23 47,23" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5"/>
+                    </svg>
+                </div>
+                <div id="hat-detective" class="absolute top-[-8%] left-[50%] transform -translate-x-1/2 w-[65%] hidden z-20 pointer-events-none">
+                    <svg viewBox="0 0 120 80" class="w-full h-full drop-shadow-md">
+                        <path d="M20,60 C20,22 100,22 100,60" fill="#B45309" stroke="#78350F" stroke-width="2.5" stroke-linejoin="round"/>
+                        <path d="M12,60 C22,53 52,53 57,60 C52,66 22,66 12,60" fill="#92400E" stroke="#78350F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M108,60 C98,53 68,53 63,60 C68,66 98,66 108,60" fill="#92400E" stroke="#78350F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M45,30 Q60,14 75,30 Z" fill="#92400E" stroke="#78350F" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div id="hat-astronaut" class="absolute top-[2%] left-[50%] transform -translate-x-1/2 w-[82%] h-[82%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 160 160" class="w-full h-full drop-shadow-md">
+                        <circle cx="80" cy="75" r="62" fill="rgba(14, 165, 233, 0.08)" stroke="#38BDF8" stroke-width="3" stroke-dasharray="240 100"/>
+                        <path d="M38,38 Q58,22 82,28" stroke="#FFFFFF" stroke-width="4.5" fill="none" stroke-linecap="round" opacity="0.75"/>
+                        <path d="M115,115 Q125,100 120,85" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+                        <rect x="12" y="65" width="10" height="20" rx="3" fill="#FBBF24" stroke="#D97706" stroke-width="1.5" transform="rotate(-15, 12, 65)"/>
+                        <rect x="138" y="65" width="10" height="20" rx="3" fill="#FBBF24" stroke="#D97706" stroke-width="1.5" transform="rotate(15, 138, 65)"/>
+                        <path d="M28,118 Q80,132 132,118" stroke="#9CA3AF" stroke-width="8" fill="none" stroke-linecap="round"/>
+                        <path d="M28,118 Q80,132 132,118" stroke="#E5E7EB" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    </svg>
+                </div>
+
+                <!-- Glasses Overlays (SVG) -->
+                <div id="glasses-superhero" class="absolute top-[34%] left-[50%] transform -translate-x-1/2 w-[34%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 100 40" class="w-full h-full filter drop-shadow-md">
+                        <path d="M5,10 Q50,0 95,10 L90,25 Q50,35 10,25 Z" fill="rgba(239, 68, 68, 0.25)" stroke="#EF4444" stroke-width="2"/>
+                        <path d="M15,14 Q50,8 85,14 L82,21 Q50,28 18,21 Z" fill="#FEE2E2" opacity="0.4"/>
+                        <line x1="10" y1="12" x2="30" y2="22" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+                    </svg>
+                </div>
+                <div id="glasses-detective" class="absolute top-[32%] left-[50%] transform -translate-x-1/2 w-[36%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 100 50" class="w-full h-full filter drop-shadow-md">
+                        <circle cx="70" cy="25" r="15" fill="rgba(254, 240, 138, 0.25)" stroke="#EAB308" stroke-width="2.5"/>
+                        <path d="M62,17 Q70,12 78,17" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.7"/>
+                        <path d="M85,25 Q95,45 85,60" fill="none" stroke="#EAB308" stroke-width="1.5" stroke-linecap="round"/>
+                        <circle cx="85" cy="60" r="2.5" fill="#EAB308"/>
+                    </svg>
+                </div>
+                <div id="glasses-astronaut" class="absolute top-[31%] left-[50%] transform -translate-x-1/2 w-[46%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 100 40" class="w-full h-full filter drop-shadow-md">
+                        <path d="M2,16 Q-1,19 -2,23" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                        <path d="M98,16 Q101,19 102,23" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                        <path d="M2,16 Q50,3 98,16 L93,31 Q50,20 7,31 Z" fill="rgba(14, 165, 233, 0.45)" stroke="#38BDF8" stroke-width="1.5" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <!-- Outfit Overlays (SVG) -->
+                <div id="outfit-superhero" class="absolute bottom-0 left-[50%] transform -translate-x-1/2 w-full h-[58%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 200 120" class="w-full h-full filter drop-shadow-md">
+                        <path d="M10,120 C10,40 45,30 65,40 L135,40 C155,30 190,40 190,120 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="2"/>
+                        <path d="M50,120 L150,120 L135,40 L65,40 Z" fill="#3B82F6" stroke="#1D4ED8" stroke-width="2"/>
+                        <polygon points="100,55 104,65 114,65 106,71 109,81 100,75 91,81 94,71 86,65 96,65" fill="#FBBF24" stroke="#D97706" stroke-width="1.5"/>
+                        <path d="M65,40 L100,55 L135,40" fill="none" stroke="#FBBF24" stroke-width="4" stroke-linecap="round"/>
+                        <rect x="50" y="108" width="100" height="12" fill="#FBBF24" stroke="#D97706" stroke-width="1.5" rx="2"/>
+                    </svg>
+                </div>
+                <div id="outfit-detective" class="absolute bottom-0 left-[50%] transform -translate-x-1/2 w-full h-[58%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 200 120" class="w-full h-full filter drop-shadow-md">
+                        <!-- Coat Base (covers arms and torso) -->
+                        <path d="M15,120 C10,60 40,35 65,40 L135,40 C160,35 190,60 185,120 Z" fill="#D97706" stroke="#78350F" stroke-width="2"/>
+                        <!-- Arm creases/seams -->
+                        <path d="M50,120 C50,80 65,40 65,40" fill="none" stroke="#78350F" stroke-width="2"/>
+                        <path d="M150,120 C150,80 135,40 135,40" fill="none" stroke="#78350F" stroke-width="2"/>
+                        <!-- Inner shirt/tie area (V-neck) -->
+                        <polygon points="85,40 100,65 115,40" fill="#38BDF8"/>
+                        <!-- Left Lapel -->
+                        <path d="M65,40 L85,80 L85,120" fill="#B45309" stroke="#78350F" stroke-width="2"/>
+                        <!-- Right Lapel -->
+                        <path d="M135,40 L115,80 L115,120" fill="#B45309" stroke="#78350F" stroke-width="2"/>
+                        <!-- Buttons -->
+                        <circle cx="75" cy="85" r="4" fill="#FBBF24" stroke="#D97706" stroke-width="1"/>
+                        <circle cx="75" cy="100" r="4" fill="#FBBF24" stroke="#D97706" stroke-width="1"/>
+                        <circle cx="125" cy="85" r="4" fill="#FBBF24" stroke="#D97706" stroke-width="1"/>
+                        <circle cx="125" cy="100" r="4" fill="#FBBF24" stroke="#D97706" stroke-width="1"/>
+                        <!-- Pocket -->
+                        <rect x="135" y="80" width="18" height="12" fill="#92400E" stroke="#78350F" rx="2"/>
+                        <circle cx="140" cy="74" r="5" fill="#E0F2FE" stroke="#475569" stroke-width="1.5"/>
+                        <line x1="144" y1="78" x2="150" y2="84" stroke="#475569" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div id="outfit-astronaut" class="absolute bottom-0 left-[50%] transform -translate-x-1/2 w-full h-[58%] pointer-events-none hidden z-20">
+                    <svg viewBox="0 0 200 120" class="w-full h-full filter drop-shadow-md">
+                        <!-- Suit Base (covers arms) -->
+                        <path d="M10,120 C5,50 35,35 65,40 L135,40 C165,35 195,50 190,120 Z" fill="#F3F4F6" stroke="#D1D5DB" stroke-width="2.5"/>
+                        <!-- Arm Seams -->
+                        <path d="M50,120 C50,80 65,40 65,40" fill="none" stroke="#D1D5DB" stroke-width="2.5"/>
+                        <path d="M150,120 C150,80 135,40 135,40" fill="none" stroke="#D1D5DB" stroke-width="2.5"/>
+                        <!-- Sleeve joint lines (shoulders/elbows) -->
+                        <path d="M15,85 C25,88 40,88 48,82" fill="none" stroke="#9CA3AF" stroke-width="2"/>
+                        <path d="M185,85 C175,88 160,88 152,82" fill="none" stroke="#9CA3AF" stroke-width="2"/>
+                        <path d="M22,105 C30,108 42,108 48,103" fill="none" stroke="#9CA3AF" stroke-width="2"/>
+                        <path d="M178,105 C170,108 158,108 152,103" fill="none" stroke="#9CA3AF" stroke-width="2"/>
+                        
+                        <!-- Collar Ring -->
+                        <ellipse cx="100" cy="40" rx="35" ry="8" fill="#3B82F6" stroke="#1D4ED8" stroke-width="2"/>
+                        <!-- Control Panel -->
+                        <rect x="75" y="60" width="50" height="35" rx="4" fill="#374151" stroke="#1F2937" stroke-width="2"/>
+                        <circle cx="87" cy="70" r="3.5" fill="#EF4444"/>
+                        <circle cx="100" cy="70" r="3.5" fill="#10B981"/>
+                        <circle cx="113" cy="70" r="3.5" fill="#FBBF24"/>
+                        <rect x="83" y="80" width="34" height="6" fill="#9CA3AF" rx="1"/>
+                        <!-- Patch on right arm -->
+                        <circle cx="165" cy="65" r="8" fill="#1E3A8A" stroke="#FFFFFF" stroke-width="1.5"/>
+                        <path d="M159,65 Q165,60 171,65" fill="none" stroke="#FBBF24" stroke-width="1.5"/>
+                        <circle cx="165" cy="65" r="2" fill="#FFFFFF"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Wardrobe Buttons (Full 3 Aisles) -->
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Wardrobe Shop</span>
+            <div class="grid grid-cols-3 gap-2 w-full text-center">
+                <!-- Hats -->
+                <div class="flex flex-col gap-2">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100 pb-1">👒 Hats</span>
+                    <button id="btn-hat-superhero" onclick="buyOrEquipItem('superhero', 'hat', 10)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🦸‍♀️</span>
+                        <span class="text-[9px] font-bold text-slate-700">Hero</span>
+                        <span id="cost-hat-superhero" class="text-[9px] font-bold text-amber-500 mt-1">10 ⭐</span>
+                    </button>
+                    <button id="btn-hat-detective" onclick="buyOrEquipItem('detective', 'hat', 15)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🕵️‍♀️</span>
+                        <span class="text-[9px] font-bold text-slate-700">Spy</span>
+                        <span id="cost-hat-detective" class="text-[9px] font-bold text-amber-500 mt-1">15 ⭐</span>
+                    </button>
+                    <button id="btn-hat-astronaut" onclick="buyOrEquipItem('astronaut', 'hat', 20)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🚀</span>
+                        <span class="text-[9px] font-bold text-slate-700">Space</span>
+                        <span id="cost-hat-astronaut" class="text-[9px] font-bold text-amber-500 mt-1">20 ⭐</span>
+                    </button>
+                </div>
+                <!-- Glasses -->
+                <div class="flex flex-col gap-2">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100 pb-1">👓 Glasses</span>
+                    <button id="btn-glasses-superhero" onclick="buyOrEquipItem('superhero', 'glasses', 25)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🕶️</span>
+                        <span class="text-[9px] font-bold text-slate-700">Laser</span>
+                        <span id="cost-glasses-superhero" class="text-[9px] font-bold text-amber-500 mt-1">25 ⭐</span>
+                    </button>
+                    <button id="btn-glasses-detective" onclick="buyOrEquipItem('detective', 'glasses', 30)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🧐</span>
+                        <span class="text-[9px] font-bold text-slate-700">Monocle</span>
+                        <span id="cost-glasses-detective" class="text-[9px] font-bold text-amber-500 mt-1">30 ⭐</span>
+                    </button>
+                    <button id="btn-glasses-astronaut" onclick="buyOrEquipItem('astronaut', 'glasses', 35)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🥽</span>
+                        <span class="text-[9px] font-bold text-slate-700">HUD</span>
+                        <span id="cost-glasses-astronaut" class="text-[9px] font-bold text-amber-500 mt-1">35 ⭐</span>
+                    </button>
+                </div>
+                <!-- Outfits -->
+                <div class="flex flex-col gap-2">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100 pb-1">🥋 Outfits</span>
+                    <button id="btn-outfit-superhero" onclick="buyOrEquipItem('superhero', 'outfit', 40)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🦸‍♀️</span>
+                        <span class="text-[9px] font-bold text-slate-700">Armor</span>
+                        <span id="cost-outfit-superhero" class="text-[9px] font-bold text-amber-500 mt-1">40 ⭐</span>
+                    </button>
+                    <button id="btn-outfit-detective" onclick="buyOrEquipItem('detective', 'outfit', 45)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🕵️‍♀️</span>
+                        <span class="text-[9px] font-bold text-slate-700">Coat</span>
+                        <span id="cost-outfit-detective" class="text-[9px] font-bold text-amber-500 mt-1">45 ⭐</span>
+                    </button>
+                    <button id="btn-outfit-astronaut" onclick="buyOrEquipItem('astronaut', 'outfit', 50)" class="bg-slate-50 border-2 border-slate-200 p-2 rounded-xl flex flex-col items-center hover:bg-slate-100 transition-colors">
+                        <span class="text-xl mb-1">🚀</span>
+                        <span class="text-[9px] font-bold text-slate-700">Suit</span>
+                        <span id="cost-outfit-astronaut" class="text-[9px] font-bold text-amber-500 mt-1">50 ⭐</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Dynamic Lobby / Learning Station -->
+        <section class="w-full lg:w-2/3 bg-white rounded-3xl border-4 border-indigo-100 p-6 shadow-lg h-auto flex flex-col">
+            
+            <!-- ================= VIEW 1: GRAND LOBBY ================= -->
+            <div id="view_lobby" class="w-full flex-grow flex flex-col">
+                
+                <!-- 程度分頁按鈕 -->
+                <div class="flex gap-2 mb-6 border-b-2 border-slate-100 pb-2 z-10">
+                    <button id="tab-lvl-beg" onclick="filterLobby('beg')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-emerald-100 text-emerald-700 border-2 border-emerald-300 transition-all">🌱 Beginner</button>
+                    <button id="tab-lvl-int" onclick="filterLobby('int')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all">🚤 Intermediate</button>
+                    <button id="tab-lvl-adv" onclick="filterLobby('adv')" class="flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all">🏔️ Advanced</button>
+                </div>
+
+                <!-- 統一的 RPG Canvas 容器 (自動替換內容) -->
+                <div id="rpgWrapper" class="w-full relative flex-grow rounded-2xl overflow-hidden shadow-inner border-4" style="min-height: 450px;">
+                    <canvas id="rpgCanvas" class="w-full h-full absolute inset-0 cursor-crosshair"></canvas>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 2: LEARNING STATION ================= -->
+            <div id="view_station" class="w-full flex-grow hidden flex-col">
+                <button onclick="closeStation()" class="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 mb-4 self-start bg-indigo-50 px-3 py-1.5 rounded-full">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Map
+                </button>
+                
+                <h2 id="stationTitle" class="kids-title text-2xl text-slate-800 mb-4 text-center">Topic Title</h2>
+
+                <!-- 3 Tabs Navigation -->
+                <div class="flex border-b-2 border-slate-100 font-bold text-sm bg-slate-50 rounded-t-xl overflow-hidden">
+                    <button onclick="switchTab('lesson')" id="tab-btn-lesson" class="flex-1 py-3 text-center border-b-4 border-amber-400 text-amber-600 bg-white transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-person-chalkboard"></i> 1. Lesson
+                    </button>
+                    <button onclick="switchTab('quest')" id="tab-btn-quest" class="flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100">
+                        <i class="fa-solid fa-clipboard-question"></i> 2. Quest
+                    </button>
+                    <button onclick="switchTab('game')" id="tab-btn-game" class="flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100">
+                        <i class="fa-solid fa-gamepad"></i> 3. Game
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="p-6 bg-white border-x-2 border-b-2 border-slate-100 rounded-b-xl flex-grow flex flex-col relative overflow-visible">
+                    
+                    <!-- TAB 1: LESSON -->
+                    <div id="tab-content-lesson" class="block">
+                        <div id="lessonContentContainer" class="flex flex-col items-center"></div>
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="switchTab('quest')" class="bg-amber-400 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-2xl shadow-md transition-all flex items-center gap-2">
+                                Ready for Quest <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: QUEST -->
+                    <div id="tab-content-quest" class="hidden flex-col flex-grow min-h-[350px]">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-xs font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-full" id="questProgressTag">Quest 1/X</span>
+                            <div class="flex items-center gap-1 text-amber-500 font-bold">
+                                <i class="fa-solid fa-star"></i> <span id="questScore">0</span>
+                            </div>
+                        </div>
+                        
+                        <div id="questQuestionContainer" class="bg-sky-50 border-2 border-sky-100 rounded-2xl p-6 text-center shadow-inner mb-6 relative">
+                            <p id="questQuestionText" class="text-lg font-bold text-slate-700 leading-relaxed">Loading...</p>
+                        </div>
+
+                        <div id="questOptionsContainer" class="w-full relative flex-grow flex flex-col justify-center"></div>
+
+                        <div id="questNextContainer" class="mt-6 flex justify-end hidden">
+                            <button onclick="nextQuestQuestion()" class="bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-2xl shadow-md transition-all flex items-center gap-2">
+                                Next <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: GAME -->
+                    <div id="tab-content-game" class="hidden flex-col h-full min-h-[400px]">
+                        <div class="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-2xl border-2 border-purple-100">
+                            <div>
+                                <span class="block text-[10px] text-purple-400 font-bold uppercase">Time</span>
+                                <span id="gameTimer" class="text-2xl font-black text-purple-600">30s</span>
+                            </div>
+                            <div class="text-center flex-grow">
+                                <span class="block text-[10px] text-purple-400 font-bold uppercase">Mission</span>
+                                <span id="gameTargetText" class="text-sm font-bold text-slate-700">Play the game!</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] text-amber-500 font-bold uppercase">Score</span>
+                                <span id="gameScore" class="text-2xl font-black text-amber-500">0</span>
+                            </div>
+                        </div>
+
+                        <!-- 共通遊戲視窗 -->
+                        <div id="multi-game-container" class="flex-grow h-[400px] bg-gradient-to-b from-sky-200 to-sky-50 rounded-2xl relative overflow-hidden border-4 border-sky-300 flex flex-col justify-end">
+                            
+                            <!-- Bubble Game Container -->
+                            <div id="bubble-container" class="absolute inset-0 hidden"></div>
+                            
+                            <!-- Monster Game Container (Articles) -->
+                            <div id="monster-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4">
+                                <div id="monster-word-display" class="absolute top-10 bg-white px-6 py-3 rounded-2xl border-4 border-purple-300 text-2xl font-black text-purple-600 shadow-lg hidden"></div>
+                                <div class="text-7xl mb-4" id="monster-emoji">👾</div>
+                                <div class="flex gap-4">
+                                    <button onclick="feedMonster('a')" class="bg-pink-400 hover:bg-pink-500 text-white font-black text-xl py-4 px-8 rounded-3xl shadow-lg border-b-4 border-pink-600 active:translate-y-1 active:border-b-0">Feed 'A'</button>
+                                    <button onclick="feedMonster('an')" class="bg-amber-400 hover:bg-amber-500 text-white font-black text-xl py-4 px-8 rounded-3xl shadow-lg border-b-4 border-amber-600 active:translate-y-1 active:border-b-0">Feed 'AN'</button>
+                                </div>
+                            </div>
+
+                            <!-- Robot Power Game Container (Be-Verbs) -->
+                            <div id="robot-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4 bg-slate-800">
+                                <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 4px);"></div>
+                                <!-- Target Pronoun Display (Screen) -->
+                                <div class="absolute top-8 bg-black border-4 border-slate-600 rounded-xl px-8 py-5 min-w-[160px] shadow-[0_0_15px_#38bdf8] flex justify-center items-center">
+                                    <span id="robot-target-display" class="text-3xl sm:text-4xl font-mono text-sky-400 font-black tracking-wide leading-normal">I</span>
+                                </div>
+                                <div class="text-7xl mb-4 relative z-10" id="robot-emoji">🤖</div>
+                                <div class="flex gap-3 relative z-10 w-full px-4 justify-center">
+                                    <button onclick="powerRobot('am')" class="flex-1 max-w-[100px] bg-sky-500 hover:bg-sky-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#0284c7] active:translate-y-1 active:shadow-none transition-all">AM</button>
+                                    <button onclick="powerRobot('is')" class="flex-1 max-w-[100px] bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#059669] active:translate-y-1 active:shadow-none transition-all">IS</button>
+                                    <button onclick="powerRobot('are')" class="flex-1 max-w-[100px] bg-rose-500 hover:bg-rose-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_4px_0_#e11d48] active:translate-y-1 active:shadow-none transition-all">ARE</button>
+                                </div>
+                            </div>
+
+                            <!-- Treasure Chest Game Container (Plurals) -->
+                            <div id="treasure-container" class="absolute inset-0 hidden flex flex-col items-center justify-end pb-4 bg-[url('https://www.transparenttextures.com/patterns/sandpaper.png')] bg-amber-100">
+                                <div id="treasure-word-display" class="absolute top-10 bg-white px-8 py-4 rounded-2xl border-4 border-amber-400 text-2xl font-black text-amber-700 shadow-xl hidden"></div>
+                                <div class="flex gap-8 w-full px-8 justify-center mb-4 relative z-20">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <button onclick="openChest('singular')" class="text-7xl hover:scale-110 active:scale-95 transition-transform cursor-pointer" id="chest-singular">📦</button>
+                                        <span class="font-bold text-amber-800 bg-amber-200 px-3 py-1 rounded-full text-sm">Singular (1)</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-2">
+                                        <button onclick="openChest('plural')" class="text-7xl hover:scale-110 active:scale-95 transition-transform cursor-pointer" id="chest-plural">🎁</button>
+                                        <span class="font-bold text-rose-800 bg-rose-200 px-3 py-1 rounded-full text-sm">Plural (2+)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cat & Box Game Container (Prepositions) -->
+                            <div id="catbox-container" class="absolute inset-0 hidden flex flex-col items-center bg-[url('https://www.transparenttextures.com/patterns/white-wall.png')] bg-emerald-50">
+                                <!-- Instructions -->
+                                <div id="catbox-sentence-display" class="absolute top-8 bg-white px-6 py-3 rounded-2xl border-4 border-emerald-300 text-xl font-black text-emerald-700 shadow-lg text-center z-30">
+                                    The beautiful picture is <span class="text-pink-500">ON</span> the wall.
+                                </div>
+                                
+                                <!-- Play Area -->
+                                <div class="relative w-full max-w-[300px] h-[280px] mt-24">
+                                    <!-- The Box (Base) -->
+                                    <div class="absolute left-1/2 bottom-12 transform -translate-x-1/2 text-8xl z-10 pointer-events-none drop-shadow-md">📦</div>
+                                    
+                                    <!-- Clickable Hotspots using BOTTOM positioning for alignment -->
+                                    <button onclick="moveCat('on')" class="absolute bottom-[165px] left-1/2 transform -translate-x-1/2 w-28 h-20 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-xl hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for ON</button>
+                                    <button onclick="moveCat('in')" class="absolute bottom-[75px] left-1/2 transform -translate-x-1/2 w-24 h-24 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-full hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for IN</button>
+                                    <button onclick="moveCat('under')" class="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 w-32 h-16 bg-white/30 border-2 border-dashed border-emerald-400/50 rounded-xl hover:bg-emerald-200/50 z-20 cursor-pointer flex items-center justify-center text-[10px] text-emerald-600 font-bold opacity-0 hover:opacity-100 transition-opacity">Click for UNDER</button>
+                                    
+                                    <!-- The Cat (Movable Element) -->
+                                    <div id="the-cat" class="absolute text-5xl transition-all duration-300 transform -translate-x-1/2 z-15 left-[15%] bottom-[10px] drop-shadow-sm">🐱</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Spot The Error Game Container -->
+                            <div id="spot-container" class="absolute inset-0 hidden flex flex-col items-center bg-slate-100 pb-6 pt-4 px-4">
+                                <div class="w-full max-w-lg bg-white p-6 rounded-3xl border-4 border-slate-300 shadow-xl relative flex-grow flex flex-col justify-center">
+                                    <div class="absolute -top-4 -left-4 text-4xl transform -rotate-12">🔍</div>
+                                    <h3 class="text-center font-bold text-slate-500 mb-6 uppercase tracking-wider text-sm">Find the mistake!</h3>
+                                    
+                                    <!-- Word Magnets Container -->
+                                    <div id="spot-sentence-box" class="flex flex-wrap justify-center gap-3">
+                                        <!-- Magnetic words populated via JS -->
+                                    </div>
+                                    
+                                    <div id="spot-feedback" class="h-12 mt-6 flex items-center justify-center text-xl font-bold"></div>
+                                </div>
+                            </div>
+
+                            <!-- Game Start Overlay -->
+                            <div id="gameStartOverlay" class="absolute inset-0 bg-black/40 flex items-center justify-center z-40 backdrop-blur-sm hidden"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+    </main>
+    
+    <!-- Auto-Save Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // ==========================================
+        // 1. DATABASE: Curriculum & Quizzes
+        // ==========================================
+        const curriculum = {
+            // ----- BEGINNER BAY -----
+            beg_1: {
+                title: "🐝 Be-Verbs (am/is/are)", 
+                rule: "I uses 'am'. Singular uses 'is'. Plural & You uses 'are'.", 
+                example: "I am happy. The dog is cute. They are running.",
+                videoSrc: "be_verb.mp4",
+                quizzes: [
+                    { q: "I _______ a student.", options: ["am", "is", "are"], correct: "am" },
+                    { q: "The dog _______ barking.", options: ["am", "is", "are"], correct: "is" },
+                    { q: "They _______ my friends.", options: ["am", "is", "are"], correct: "are" }
+                ],
+                game: { 
+                    type: "robot", targetText: "Power the Robot!", 
+                    targets: [ { word: "I", type: "am" }, { word: "He", type: "is" }, { word: "She", type: "is" }, { word: "It", type: "is" }, { word: "They", type: "are" }, { word: "We", type: "are" }, { word: "You", type: "are" } ] 
+                }
+            },
+            beg_2: {
+                title: "🍎 Plurals (s/es/ies)", 
+                rule: "Add -s to most words. Add -es to words ending in s, x, ch, sh. Change y to -ies.", 
+                example: "One cat -> Two cats. One box -> Two boxes.",
+                videoSrc: "Plurals.mp4",
+                quizzes: [
+                    { q: "I have two _______ (apple).", options: ["apples", "appleses", "applies"], correct: "apples" },
+                    { q: "He washed the _______ (dish).", options: ["dishs", "dishes", "dishies"], correct: "dishes" },
+                    { q: "Look at those _______ (baby).", options: ["babys", "babies", "babyies"], correct: "babies" }
+                ],
+                game: { 
+                    type: "treasure", targetText: "Sort into Chests!", 
+                    targets: [ { word: "one dog", type: "singular" }, { word: "three dogs", type: "plural" }, { word: "a box", type: "singular" }, { word: "five boxes", type: "plural" }, { word: "a baby", type: "singular" }, { word: "two babies", type: "plural" } ] 
+                }
+            },
+            beg_3: {
+                title: "👤 Pronouns (He/She/It/They)", 
+                rule: "Use 'He' for a boy, 'She' for a girl, 'It' for a thing/animal, 'They' for many.", 
+                example: "Tom is tall. -> He is tall.",
+                videoSrc: "pronoun.mp4",
+                quizzes: [
+                    { q: "Mary is my sister. _______ is very kind.", options: ["He", "She", "It"], correct: "She" },
+                    { q: "The book is heavy. _______ is on the table.", options: ["He", "She", "It"], correct: "It" },
+                    { q: "Tom and Jerry are playing. _______ are fast.", options: ["We", "You", "They"], correct: "They" }
+                ],
+                game: { targetText: "Pop the pronouns!", type: "bubble", targets: ["he", "she", "it", "they", "we", "I"], decoys: ["Tom", "Mary", "dog", "book"] }
+            },
+            beg_4: {
+                title: "🅰️ Articles (a/an/the)", 
+                rule: "Use 'a' for consonant sounds. Use 'an' for vowel sounds (a,e,i,o,u). Use 'the' for specific things.", 
+                example: "an apple, a car, the sun.",
+                videoSrc: "Articles.mp4",
+                quizzes: [
+                    { q: "I want to buy _______ new car.", options: ["a", "an", "the"], correct: "a" },
+                    { q: "I saw _______ elephant at the zoo.", options: ["a", "an", "the"], correct: "an" },
+                    { q: "Can you pass me _______ salt on the table?", options: ["a", "an", "the"], correct: "the" }
+                ],
+                game: { 
+                    type: "monster", targetText: "Feed the Monster!", 
+                    targets: [ { word: "apple", type: "an" }, { word: "umbrella", type: "an" }, { word: "egg", type: "an" }, { word: "dog", type: "a" }, { word: "cat", type: "a" }, { word: "book", type: "a" } ] 
+                }
+            },
+            beg_5: {
+                title: "📍 Prepositions (in/on/under)", 
+                rule: "Prepositions tell us WHERE things are. 'In' means inside, 'on' means touching the top, 'under' means below.", 
+                example: "The cat is IN the box. The apple is ON the table.",
+                videoSrc: "preposition.mp4",
+                quizzes: [
+                    { q: "The bird is flying _______ the sky.", options: ["in", "on", "under"], correct: "in" },
+                    { q: "I left my book _______ the desk.", options: ["in", "on", "under"], correct: "on" },
+                    { q: "The beautiful picture is hanging _______ the wall.", options: ["in", "on", "under"], correct: "on" }
+                ],
+                game: { 
+                    type: "catbox", targetText: "Move the Cat!", 
+                    targets: [ { word: "in", sentence: "The cat is IN the box." }, { word: "on", sentence: "The beautiful picture is ON the wall." }, { word: "under", sentence: "The cat is UNDER the box." } ] 
+                }
+            },
+            beg_6: {
+                title: "⏱️ Simple Present", 
+                rule: "Use Simple Present for habits or facts. Add 's' or 'es' for He/She/It.", 
+                example: "I play tennis. He plays tennis.",
+                videoSrc: "PresentTense.mp4",
+                quizzes: [
+                    { q: "She _______ to school every day.", options: ["go", "goes", "going"], correct: "goes" },
+                    { q: "They _______ breakfast at 7 AM.", options: ["eat", "eats", "eating"], correct: "eat" },
+                    { q: "The sun _______ in the east.", options: ["rise", "rises", "rising"], correct: "rises" }
+                ],
+                game: { targetText: "Pop Simple Present signal words!", type: "bubble", targets: ["always", "usually", "often", "sometimes", "every day", "never"], decoys: ["yesterday", "now", "tomorrow", "last week", "at the moment"] }
+            },
+
+            // ----- INTERMEDIATE ISLE -----
+            int_1: {
+                title: "🏃‍♀️ Present Continuous", 
+                rule: "Use am/is/are + verb-ing for actions happening RIGHT NOW.", 
+                example: "I am eating. She is reading. They are playing.",
+                videoSrc: "PresentContinuous.mp4",
+                quizzes: [
+                    { q: "Look! The baby _______.", options: ["sleeps", "is sleeping", "are sleeping"], correct: "is sleeping" },
+                    { q: "We _______ a movie right now.", options: ["watch", "is watching", "are watching"], correct: "are watching" },
+                    { q: "I _______ my homework at the moment.", options: ["am doing", "is doing", "do"], correct: "am doing" }
+                ],
+                game: { targetText: "Pop Present Continuous signal words!", type: "bubble", targets: ["now", "right now", "at the moment", "Look!", "Listen!"], decoys: ["yesterday", "always", "tomorrow", "already", "usually"] }
+            },
+            int_2: {
+                title: "🕰️ Past Simple", 
+                rule: "Use Past Simple for completed past actions. Add -ed to regular verbs. Irregular verbs change form.", 
+                example: "I played tennis yesterday. I went to the store.",
+                videoSrc: "simplepast.mp4",
+                quizzes: [
+                    { q: "Yesterday, we _______ to the park.", options: ["go", "went", "gone"], correct: "went" },
+                    { q: "She _______ the movie last night.", options: ["watch", "watches", "watched"], correct: "watched" },
+                    { q: "I _______ a great book last week.", options: ["read", "reads", "reading"], correct: "read" }
+                ],
+                game: { targetText: "Pop Past Simple signal words!", type: "bubble", targets: ["yesterday", "last week", "a year ago", "in 2010", "last night"], decoys: ["tomorrow", "usually", "now", "since", "next month"] }
+            },
+            int_3: {
+                title: "⚖️ Comparatives", 
+                rule: "Add -er for short words. Use 'more' for long words to compare TWO things.", 
+                example: "A cat is smaller than a dog. Gold is more expensive than silver.",
+                videoSrc: "comparative.mp4",
+                quizzes: [
+                    { q: "My car is _______ than yours.", options: ["fast", "faster", "more fast"], correct: "faster" },
+                    { q: "This book is _______ than that one.", options: ["interesting", "more interesting", "most interesting"], correct: "more interesting" },
+                    { q: "He is _______ than his brother.", options: ["tall", "taller", "more tall"], correct: "taller" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the comparative error!", 
+                    targets: [ 
+                        { sentence: ["My", "dog", "is", "more", "big", "."], wrongIdx: 3, correction: "bigger" }, 
+                        { sentence: ["She", "is", "beautifuler", "than", "me", "."], wrongIdx: 2, correction: "more beautiful" },
+                        { sentence: ["He", "runs", "fastest", "than", "Tom", "."], wrongIdx: 2, correction: "faster" }
+                    ] 
+                }
+            },
+            int_4: {
+                title: "🦸 Modals (Can/Could)", 
+                rule: "Use 'can' for present ability. Use 'could' for past ability. Always followed by a base verb!", 
+                example: "I can swim. When I was young, I could run fast.",
+                videoSrc: "ModalVerbs.mp4",
+                quizzes: [
+                    { q: "I _______ ride a bike now.", options: ["can", "could", "should"], correct: "can" },
+                    { q: "When he was 5, he _______ read.", options: ["can", "could", "will"], correct: "could" },
+                    { q: "She _______ speak three languages.", options: ["can", "could", "would"], correct: "can" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the modal error!", 
+                    targets: [ 
+                        { sentence: ["I", "can", "swimming", "in", "the", "pool", "."], wrongIdx: 2, correction: "swim" }, 
+                        { sentence: ["When", "I", "was", "young", ",", "I", "can", "run", "fast", "."], wrongIdx: 6, correction: "could" },
+                        { sentence: ["She", "could", "plays", "the", "piano", "."], wrongIdx: 2, correction: "play" }
+                    ] 
+                }
+            },
+            int_5: {
+                title: "❓ Wh- Question words", 
+                rule: "Who (person), What (thing), Where (place), When (time), Why (reason).", 
+                example: "Who is he? Where do you live? Why are you sad?",
+                videoSrc: "QuestionWords.mp4",
+                quizzes: [
+                    { q: "_______ is your favorite color?", options: ["Who", "What", "Where"], correct: "What" },
+                    { q: "_______ are you going?", options: ["Who", "Where", "When"], correct: "Where" },
+                    { q: "_______ is that man?", options: ["Who", "What", "Why"], correct: "Who" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the wrong Wh- word!", 
+                    targets: [ 
+                        { sentence: ["Who", "is", "your", "name", "?"], wrongIdx: 0, correction: "What" }, 
+                        { sentence: ["Who", "are", "you", "going", "?"], wrongIdx: 0, correction: "Where" },
+                        { sentence: ["Where", "time", "is", "it", "?"], wrongIdx: 0, correction: "What" }
+                    ] 
+                }
+            },
+            int_6: {
+                title: "🔗 Conjunctions (and/but/so/or/because)", 
+                rule: "Connect words or sentences. 'And' adds info. 'But' shows difference. 'Because' gives reason. 'So' gives result.", 
+                example: "I like apples AND bananas. I am tired SO I will sleep.",
+                videoSrc: "conjunctions.mp4",
+                quizzes: [
+                    { q: "I like dogs, _______ I don't like cats.", options: ["and", "but", "so"], correct: "but" },
+                    { q: "I was hungry, _______ I ate an apple.", options: ["because", "but", "so"], correct: "so" },
+                    { q: "I stayed home _______ it was raining.", options: ["so", "because", "and"], correct: "because" }
+                ],
+                game: { 
+                    type: "spot", targetText: "Spot the wrong conjunction!", 
+                    targets: [ 
+                        { sentence: ["I", "am", "tired", "because", "I", "will", "sleep", "."], wrongIdx: 3, correction: "so" }, 
+                        { sentence: ["I", "like", "apples", "but", "bananas", "."], wrongIdx: 3, correction: "and" },
+                        { sentence: ["It", "was", "raining", "so", "I", "stayed", "home", "."], wrongIdx: 3, correction: "so" }
+                    ] 
+                }
+            },
+
+            // ----- ADVANCED ALPS -----
+            adv_1: {
+                title: "🔮 Simple Future (will / be going to)", 
+                rule: "Use 'will' for sudden decisions or predictions. Use 'be going to' for planned actions.", 
+                example: "I think it will rain. I am going to visit Paris next week.",
+                videoSrc: "future.mp4",
+                quizzes: [
+                    { q: "I have my ticket. I _______ fly to Tokyo tomorrow.", options: ["will", "am going to", "going to"], correct: "am going to" },
+                    { q: "I'm thirsty! I _______ get some water.", options: ["will", "am going to", "go to"], correct: "will" },
+                    { q: "Look at those dark clouds. It _______ rain.", options: ["will", "is going to", "goes to"], correct: "is going to" }
+                ],
+                game: { targetText: "Pop Future signal words!", type: "bubble", targets: ["tomorrow", "next week", "soon", "later", "in the future"], decoys: ["yesterday", "last year", "always", "just", "ago"] }
+            },
+            adv_2: {
+                title: "🏔️ Present Perfect", 
+                rule: "Use has/have + past participle (V3) for experiences up to now, or actions starting in past and continuing.", 
+                example: "I have eaten breakfast. She has lived here for 5 years.",
+                videoSrc: "PresentPerfect.mp4",
+                quizzes: [
+                    { q: "She _______ to the moon.", options: ["has went", "have gone", "has gone"], correct: "has gone" },
+                    { q: "We _______ each other for 10 years.", options: ["know", "has known", "have known"], correct: "have known" },
+                    { q: "I _______ finished my homework yet.", options: ["has not", "have not", "did not"], correct: "have not" }
+                ],
+                game: { targetText: "Pop Present Perfect signal words!", type: "bubble", targets: ["already", "yet", "since", "for", "just", "ever", "never"], decoys: ["yesterday", "now", "tomorrow", "last month", "ago"] }
+            },
+            adv_3: {
+                title: "☘️ If Conditionals", 
+                rule: "Type 0 for facts. Type 1 for real future. Type 2 for imaginary present. Type 3 for past regrets.", 
+                example: "If I were a bird, I would fly (Type 2).",
+                videoSrc: "ifconditional.mp4",
+                quizzes: [
+                    { q: "If you heat ice, it _______.", options: ["will melt", "melts", "melted"], correct: "melts" },
+                    { q: "If I _______ rich, I would travel.", options: ["am", "was", "were"], correct: "were" },
+                    { q: "If it rains tomorrow, we _______ at home.", options: ["stay", "will stay", "would stay"], correct: "will stay" }
+                ],
+                game: { targetText: "Pop conditional words!", type: "bubble", targets: ["if", "would", "will", "had"], decoys: ["and", "but", "so", "because"] }
+            },
+            adv_4: {
+                title: "🔗 Relative Clauses", 
+                rule: "Use 'who' for people, 'which' for things, 'where' for places, 'whose' for possession.", 
+                example: "The boy who won is my friend. The book which I read is good.",
+                videoSrc: "RelativeClauses.mp4",
+                quizzes: [
+                    { q: "The car _______ is parked there is mine.", options: ["who", "which", "where"], correct: "which" },
+                    { q: "The teacher _______ wears glasses is nice.", options: ["who", "which", "whose"], correct: "who" },
+                    { q: "The city _______ I was born is beautiful.", options: ["who", "which", "where"], correct: "where" }
+                ],
+                game: { targetText: "Pop relative pronouns!", type: "bubble", targets: ["who", "which", "that", "where", "whose"], decoys: ["he", "it", "they", "we"] }
+            },
+            adv_5: {
+                title: "🏰 Reported Speech", 
+                rule: "Shift tenses backwards (Present -> Past).", 
+                example: "'I am happy' -> He said he was happy.",
+                videoSrc: "reportedspeech.mp4",
+                quizzes: [
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 1)",
+                        pairs: [
+                            { left: "'I am tired'", right: "He said he was tired." },
+                            { left: "'I can swim'", right: "She said she could swim." },
+                            { left: "'I will go'", right: "He said he would go." }
+                        ]
+                    },
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 2)",
+                        pairs: [
+                            { left: "'I like apples'", right: "She said she liked apples." },
+                            { left: "'We are playing'", right: "They said they were playing." },
+                            { left: "'I have a dog'", right: "He said he had a dog." }
+                        ]
+                    },
+                    { 
+                        type: "matching",
+                        q: "Match the Direct Speech with Reported Speech! (Set 3)",
+                        pairs: [
+                            { left: "'It is raining'", right: "He said it was raining." },
+                            { left: "'I don't know'", right: "She said she didn't know." },
+                            { left: "'We can help'", right: "They said they could help." }
+                        ]
+                    }
+                ],
+                game: { targetText: "Pop reported speech verbs!", type: "bubble", targets: ["said", "told", "asked", "replied"], decoys: ["say", "tell", "ask", "reply"] }
+            },
+            adv_6: {
+                title: "🏃‍♂️ Gerunds & Infinitives", 
+                rule: "Some verbs are followed by -ing (enjoy), some by to+verb (want).", 
+                example: "I enjoy reading. I want to play.",
+                videoSrc: "Gerunds.mp4",
+                quizzes: [
+                    { type: "input", q: "I enjoy _______ (eat) pizza.", correct: "eating" },
+                    { type: "input", q: "She decided _______ (buy) a new car.", correct: "to buy" },
+                    { type: "input", q: "He avoids _______ (speak) in public.", correct: "speaking" }
+                ],
+                game: { targetText: "Pop gerunds (-ing)!", type: "bubble", targets: ["playing", "reading", "eating", "swimming"], decoys: ["to play", "to read", "play", "read"] }
+            }
+        };
+
+        // ==========================================
+        // 2. CORE STATE & LOCAL STORAGE SYNC
+        // ==========================================
+        let totalStars = 0;
+        let isVoiceEnabled = true; 
+        
+        let unlockedItems = { 
+            hat: { superhero: false, detective: false, astronaut: false },
+            glasses: { superhero: false, detective: false, astronaut: false },
+            outfit: { superhero: false, detective: false, astronaut: false }
+        };
+        let activeCostume = { hat: null, glasses: null, outfit: null };
+
+        let activeStationKey = null;
+        let activeTopicData = null;
+        let currentLobbyFilter = 'beg';
+        
+        let currentQuestIndex = 0;
+        let questScore = 0;
+        let questFails = 0;
+        let questCleanupFns = []; // For cleaning up dynamic listeners
+
+        // --- RPG Engine Variables ---
+        let rpgAnimationId = null;
+        let isRpgRunning = false;
+        let rpgMouse = { x: null, y: null };
+        let rpgPlayer = { x: 0, y: 0, speed: 3.5, facing: 'down', isMoving: false, frameX: 0, timer: 0 };
+        let rpgNodes = [];
+        let activeRpgPrompt = null;
+
+        // Multi-Game Engine State
+        let isGameRunning = false;
+        let gameScore = 0;
+        let gameTime = 30;
+        let gameInterval = null;
+        let spawnInterval = null;
+        let currentMonsterTarget = null;
+        let currentRobotTarget = null;
+        let currentTreasureTarget = null;
+        let currentCatTarget = null;
+        let currentSpotTarget = null;
+
+        function loadGameState() {
+            const savedVoice = localStorage.getItem('missP_voice');
+            if (savedVoice !== null) isVoiceEnabled = savedVoice === 'true';
+
+            const savedStars = localStorage.getItem('missP_stars');
+            if (savedStars) totalStars = parseInt(savedStars);
+            
+            const savedItems = localStorage.getItem('missP_unlockedItems');
+            if (savedItems && JSON.parse(savedItems).hat) {
+                unlockedItems = JSON.parse(savedItems);
+            }
+            
+            const savedActiveCostume = localStorage.getItem('missP_activeCostume');
+            if (savedActiveCostume) activeCostume = JSON.parse(savedActiveCostume);
+
+            updateUI();
+        }
+
+        function saveGameState() {
+            localStorage.setItem('missP_voice', isVoiceEnabled);
+            localStorage.setItem('missP_stars', totalStars);
+            localStorage.setItem('missP_unlockedItems', JSON.stringify(unlockedItems));
+            localStorage.setItem('missP_activeCostume', JSON.stringify(activeCostume));
+            updateUI();
+            showAutoSaveToast();
+        }
+
+        function clearGameState() {
+            localStorage.removeItem('missP_stars');
+            localStorage.removeItem('missP_unlockedItems');
+            localStorage.removeItem('missP_activeCostume');
+            totalStars = 0;
+            unlockedItems = { 
+                hat: { superhero: false, detective: false, astronaut: false },
+                glasses: { superhero: false, detective: false, astronaut: false },
+                outfit: { superhero: false, detective: false, astronaut: false }
+            };
+            activeCostume = { hat: null, glasses: null, outfit: null };
+            document.getElementById('resetModal').classList.add('hidden');
+            updateUI();
+            missPennySpeak("Progress has been reset!");
+        }
+
+        function showAutoSaveToast() {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-emerald-100 border-2 border-emerald-300 text-emerald-700 px-4 py-2 rounded-xl font-bold shadow-lg flex items-center gap-2 toast-anim';
+            toast.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Auto-Saved!';
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+        }
+
+        function updateUI() {
+            document.getElementById('global-stars').innerText = totalStars;
+            
+            const btn = document.getElementById('voiceToggleBtn');
+            const icon = document.getElementById('voiceIcon');
+            const text = document.getElementById('voiceText');
+            if(isVoiceEnabled) {
+                btn.className = "text-xs font-bold bg-sky-200 text-sky-700 px-3 py-1 rounded-full hover:bg-sky-300 transition-colors flex items-center gap-1 shadow-sm";
+                icon.className = "fa-solid fa-volume-high";
+                text.innerText = "ON";
+            } else {
+                btn.className = "text-xs font-bold bg-slate-200 text-slate-500 px-3 py-1 rounded-full hover:bg-slate-300 transition-colors flex items-center gap-1 shadow-sm";
+                icon.className = "fa-solid fa-volume-xmark";
+                text.innerText = "OFF";
+            }
+            
+            const categories = ['hat', 'glasses', 'outfit'];
+            const themes = ['superhero', 'detective', 'astronaut'];
+
+            categories.forEach(category => {
+                themes.forEach(theme => {
+                    const btnElem = document.getElementById(`btn-${category}-${theme}`);
+                    const costSpan = document.getElementById(`cost-${category}-${theme}`);
+                    const overlayElem = document.getElementById(`${category}-${theme}`);
+                    
+                    if(!btnElem || !costSpan || !overlayElem) return;
+
+                    if (unlockedItems[category][theme]) {
+                        btnElem.classList.remove('bg-slate-50', 'border-slate-200');
+                        btnElem.classList.add('bg-emerald-50', 'border-emerald-200');
+                        
+                        if (activeCostume[category] === theme) {
+                            costSpan.innerText = "Equipped";
+                            costSpan.className = "text-[9px] font-bold text-emerald-600 mt-1";
+                            overlayElem.classList.remove('hidden');
+                        } else {
+                            costSpan.innerText = "Click to Equip";
+                            costSpan.className = "text-[9px] font-bold text-slate-400 mt-1";
+                            overlayElem.classList.add('hidden');
+                        }
+                    } else {
+                        btnElem.classList.remove('bg-emerald-50', 'border-emerald-200');
+                        btnElem.classList.add('bg-slate-50', 'border-slate-200');
+                        
+                        let cost = 10;
+                        if(category === 'hat' && theme === 'detective') cost = 15;
+                        if(category === 'hat' && theme === 'astronaut') cost = 20;
+                        if(category === 'glasses' && theme === 'superhero') cost = 25;
+                        if(category === 'glasses' && theme === 'detective') cost = 30;
+                        if(category === 'glasses' && theme === 'astronaut') cost = 35;
+                        if(category === 'outfit' && theme === 'superhero') cost = 40;
+                        if(category === 'outfit' && theme === 'detective') cost = 45;
+                        if(category === 'outfit' && theme === 'astronaut') cost = 50;
+                        
+                        costSpan.innerText = `${cost} ⭐`;
+                        costSpan.className = "text-[9px] font-bold text-amber-500 mt-1";
+                        overlayElem.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+        function buyOrEquipItem(themeId, category, cost) {
+            if (unlockedItems[category][themeId]) {
+                activeCostume[category] = activeCostume[category] === themeId ? null : themeId;
+                if(activeCostume[category]) {
+                    missPennySpeak(`Equipping my new ${category}!`);
+                } else {
+                    missPennySpeak(`Taking off my ${category}.`);
+                }
+            } else {
+                if (totalStars >= cost) {
+                    totalStars -= cost;
+                    unlockedItems[category][themeId] = true;
+                    activeCostume[category] = themeId; 
+                    missPennySpeak(`Thank you! The new ${themeId} ${category} is awesome!`);
+                    confetti({ particleCount: 50, spread: 40 });
+                } else {
+                    missPennySpeak(`You need ${cost} stars to unlock this! Keep playing!`);
+                }
+            }
+            saveGameState();
+        }
+
+        // ==========================================
+        // 3. UI RENDERING & RPG Map
+        // ==========================================
+        function initLobby() {
+            // Setup Mouse Events for Canvas
+            const rpgCanvas = document.getElementById('rpgCanvas');
+            if (rpgCanvas) {
+                // Remove pointer-events from overlay prompts so clicks fall through to canvas
+                rpgCanvas.addEventListener('mousemove', (e) => {
+                    const rect = rpgCanvas.getBoundingClientRect();
+                    const scaleX = rpgCanvas.width / rect.width;
+                    const scaleY = rpgCanvas.height / rect.height;
+                    rpgMouse.x = (e.clientX - rect.left) * scaleX;
+                    rpgMouse.y = (e.clientY - rect.top) * scaleY;
+                });
+                rpgCanvas.addEventListener('mouseleave', () => { rpgMouse.x = null; rpgMouse.y = null; });
+                rpgCanvas.addEventListener('click', () => {
+                    if (activeRpgPrompt) {
+                        openStation(activeRpgPrompt.key);
+                        // Reset mouse tracking so the prompt doesn't instantly reappear
+                        rpgMouse.x = null;
+                        rpgMouse.y = null;
+                    }
+                });
+            }
+            // Add keyboard event listener specifically for Enter
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && activeRpgPrompt && isRpgRunning) {
+                    openStation(activeRpgPrompt.key);
+                }
+            });
+
+            filterLobby('beg');
+        }
+
+        function filterLobby(levelPrefix) {
+            currentLobbyFilter = levelPrefix;
+            
+            ['beg', 'int', 'adv'].forEach(lvl => {
+                const btn = document.getElementById(`tab-lvl-${lvl}`);
+                if (lvl === levelPrefix) {
+                    let colorClass = lvl === 'beg' ? 'emerald' : (lvl === 'int' ? 'amber' : 'rose');
+                    btn.className = `flex-1 py-2 rounded-xl font-bold text-sm bg-${colorClass}-100 text-${colorClass}-700 border-2 border-${colorClass}-300 transition-all z-20 relative`;
+                } else {
+                    btn.className = `flex-1 py-2 rounded-xl font-bold text-sm bg-white text-slate-400 border-2 border-transparent hover:bg-slate-50 transition-all z-20 relative`;
+                }
+            });
+
+            // Re-initialize RPG map with the new level's nodes
+            startRPG(levelPrefix);
+        }
+
+        function startRPG(levelPrefix) {
+            stopRPG(); // Stop any existing loop
+            
+            const rpgCanvas = document.getElementById('rpgCanvas');
+            if(!rpgCanvas) return;
+            
+            // Adjust canvas border color based on level
+            const wrapper = document.getElementById('rpgWrapper');
+            if (levelPrefix === 'beg') wrapper.className = "w-full relative flex-grow rounded-2xl overflow-hidden shadow-inner border-4 border-emerald-300";
+            else if (levelPrefix === 'int') wrapper.className = "w-full relative flex-grow rounded-2xl overflow-hidden shadow-inner border-4 border-amber-300";
+            else if (levelPrefix === 'adv') wrapper.className = "w-full relative flex-grow rounded-2xl overflow-hidden shadow-inner border-4 border-rose-300";
+
+            setTimeout(() => {
+                rpgCanvas.width = rpgCanvas.clientWidth || 800;
+                rpgCanvas.height = rpgCanvas.clientHeight || 450;
+                
+                rpgPlayer.x = rpgCanvas.width / 2;
+                rpgPlayer.y = rpgCanvas.height / 2;
+                
+                const cx = rpgCanvas.width / 2;
+                const cy = rpgCanvas.height / 2;
+                const radiusX = Math.min(cx, cy) * 1.2;
+                const radiusY = Math.min(cx, cy) * 0.6;
+                
+                rpgNodes = [];
+                let i = 0;
+                let keys = Object.keys(curriculum).filter(k => k.startsWith(levelPrefix));
+                let totalNodes = keys.length;
+
+                keys.forEach((key, index) => {
+                    // Distribute nodes in an ellipse
+                    const angle = (Math.PI * 2 / totalNodes) * index - Math.PI / 2;
+                    let titleStr = curriculum[key].title;
+                    rpgNodes.push({
+                        key: key, 
+                        name: titleStr.substring(2).trim(), 
+                        icon: titleStr.substring(0, 2).trim(),
+                        x: cx + radiusX * Math.cos(angle),
+                        y: cy + radiusY * Math.sin(angle) + 20, // slightly lower
+                        r: 35
+                    });
+                });
+                
+                isRpgRunning = true;
+                rpgLoop();
+            }, 50);
+        }
+
+        function stopRPG() {
+            isRpgRunning = false;
+            if (rpgAnimationId) cancelAnimationFrame(rpgAnimationId);
+            rpgMouse = { x: null, y: null };
+            activeRpgPrompt = null;
+        }
+
+        function rpgLoop() {
+            if (!isRpgRunning) return;
+            updateRPG();
+            drawRPG();
+            rpgAnimationId = requestAnimationFrame(rpgLoop);
+        }
+
+        function updateRPG() {
+            rpgPlayer.isMoving = false;
+            
+            if (rpgMouse.x !== null && rpgMouse.y !== null) {
+                let dx = rpgMouse.x - rpgPlayer.x;
+                let dy = rpgMouse.y - rpgPlayer.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > rpgPlayer.speed) {
+                    rpgPlayer.isMoving = true;
+                    rpgPlayer.x += (dx / distance) * rpgPlayer.speed;
+                    rpgPlayer.y += (dy / distance) * rpgPlayer.speed;
+                    
+                    let angle = Math.atan2(dy, dx);
+                    if (angle > -Math.PI/4 && angle <= Math.PI/4) rpgPlayer.facing = 'right';
+                    else if (angle > Math.PI/4 && angle <= 3*Math.PI/4) rpgPlayer.facing = 'down';
+                    else if (angle > 3*Math.PI/4 || angle <= -3*Math.PI/4) rpgPlayer.facing = 'left';
+                    else rpgPlayer.facing = 'up';
+                }
+            }
+            
+            if (rpgPlayer.isMoving) {
+                rpgPlayer.timer++;
+                if (rpgPlayer.timer > 8) {
+                    rpgPlayer.frameX = (rpgPlayer.frameX === 0) ? 1 : 0;
+                    rpgPlayer.timer = 0;
+                }
+            } else {
+                rpgPlayer.frameX = 0;
+            }
+
+            activeRpgPrompt = null;
+            for (let node of rpgNodes) {
+                let dx = rpgPlayer.x - node.x;
+                let dy = rpgPlayer.y - node.y;
+                if (Math.sqrt(dx * dx + dy * dy) < node.r + 30) {
+                    activeRpgPrompt = node;
+                }
+            }
+        }
+
+        function drawRPG() {
+            const canvas = document.getElementById('rpgCanvas');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radiusX = Math.min(cx, cy) * 1.2;
+            const radiusY = Math.min(cx, cy) * 0.6;
+
+            // Determine colors based on active tab
+            let grassColor, sandColor, pathColor, nodeColor, strokeColor;
+            if (currentLobbyFilter === 'beg') {
+                grassColor = '#86efac'; sandColor = '#fde047'; pathColor = '#86efac'; nodeColor = '#fcd34d'; strokeColor = '#d97706';
+            } else if (currentLobbyFilter === 'int') {
+                grassColor = '#fde047'; sandColor = '#fcd34d'; pathColor = '#fde047'; nodeColor = '#60a5fa'; strokeColor = '#2563eb';
+            } else {
+                grassColor = '#fca5a5'; sandColor = '#f87171'; pathColor = '#fecdd3'; nodeColor = '#c084fc'; strokeColor = '#7e22ce';
+            }
+
+            // 1. Draw Ocean Background
+            let oceanGrad = ctx.createRadialGradient(cx, cy, canvas.width * 0.1, cx, cy, canvas.width);
+            oceanGrad.addColorStop(0, '#38bdf8'); // Sky blue
+            oceanGrad.addColorStop(1, '#0369a1'); // Deep ocean
+            ctx.fillStyle = oceanGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw Organic Island Base
+            const drawIslandLayer = (yOffset, fill) => {
+                ctx.fillStyle = fill;
+                ctx.beginPath();
+                for(let i = 0; i <= Math.PI * 2; i += 0.05) {
+                    let baseRx = radiusX + 60; 
+                    let baseRy = radiusY + 60;
+                    // Add organic, bumpy edges using sine/cosine waves
+                    let bump = 1 + Math.sin(i * 6) * 0.04 + Math.cos(i * 4) * 0.05;
+                    let x = cx + Math.cos(i) * baseRx * bump;
+                    let y = cy + Math.sin(i) * baseRy * bump + yOffset;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.fill();
+            };
+            
+            drawIslandLayer(20, sandColor); // Sand Base Layer
+            drawIslandLayer(0, grassColor); // Grass Top Layer
+
+            // Draw Connective Path
+            ctx.beginPath();
+            rpgNodes.forEach((n, i) => {
+                if (i === 0) ctx.moveTo(n.x, n.y);
+                else ctx.lineTo(n.x, n.y);
+            });
+            if(rpgNodes.length > 0) ctx.lineTo(rpgNodes[0].x, rpgNodes[0].y);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([10, 15]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Islands
+            rpgNodes.forEach((node, i) => {
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                ctx.beginPath(); ctx.arc(node.x, node.y + 5, node.r, 0, Math.PI*2); ctx.fill();
+                
+                // Base
+                ctx.fillStyle = nodeColor; 
+                ctx.beginPath(); ctx.arc(node.x, node.y, node.r, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = strokeColor; ctx.lineWidth = 4; ctx.stroke();
+                
+                // Number Badge
+                ctx.fillStyle = strokeColor;
+                ctx.beginPath(); ctx.arc(node.x - 25, node.y - 25, 12, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font = 'bold 12px Quicksand';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, node.x - 25, node.y - 25);
+
+                // Icon
+                ctx.font = '30px Arial'; ctx.fillText(node.icon, node.x, node.y);
+                
+                // Label plate
+                ctx.fillStyle = 'white';
+                ctx.beginPath(); ctx.roundRect(node.x - 50, node.y + 25, 100, 20, 10); ctx.fill();
+                ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#1e293b'; ctx.font = 'bold 10px Quicksand';
+                ctx.fillText(node.name, node.x, node.y + 35);
+            });
+
+            drawRPGPlayer(ctx);
+
+            if (activeRpgPrompt) {
+                // Interactive floating prompt
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                const boxW = 180;
+                ctx.beginPath(); ctx.roundRect(rpgPlayer.x - boxW/2, rpgPlayer.y - 75, boxW, 30, 15); ctx.fill();
+                
+                let textColor = currentLobbyFilter === 'beg' ? '#fde047' : (currentLobbyFilter === 'int' ? '#93c5fd' : '#e879f9');
+                ctx.fillStyle = textColor; 
+                ctx.font = 'bold 12px Quicksand'; ctx.textAlign = 'center';
+                ctx.fillText(`Click to enter: Level ${rpgNodes.indexOf(activeRpgPrompt) + 1}`, rpgPlayer.x, rpgPlayer.y - 60);
+                canvas.style.cursor = 'pointer';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        function drawRPGPlayer(ctx) {
+            const px = rpgPlayer.x;
+            const py = rpgPlayer.y;
+            const walkOffset = (rpgPlayer.frameX === 1) ? 3 : -3;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.ellipse(px, py + 22, 14, 6, 0, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = 'white'; 
+            if (rpgPlayer.isMoving) {
+                ctx.fillRect(px - 8, py + 10, 6, 10);
+                ctx.fillRect(px + 2, py + 10 + walkOffset, 6, 10);
+                ctx.fillStyle = '#111'; 
+                ctx.fillRect(px - 10, py + 20, 10, 5);
+                ctx.fillRect(px, py + 20 + walkOffset, 10, 5);
+            } else {
+                ctx.fillRect(px - 8, py + 10, 6, 10);
+                ctx.fillRect(px + 2, py + 10, 6, 10);
+                ctx.fillStyle = '#111'; 
+                ctx.fillRect(px - 10, py + 20, 10, 5);
+                ctx.fillRect(px + 2, py + 20, 10, 5);
+            }
+
+            ctx.fillStyle = '#64748b'; ctx.fillRect(px - 12, py + 2, 24, 10);
+            ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(px - 12, py - 18, 24, 20, 4); ctx.fill();
+
+            if (rpgPlayer.facing === 'down') {
+                ctx.fillStyle = '#065f46'; ctx.beginPath();
+                ctx.moveTo(px - 3, py - 16); ctx.lineTo(px + 3, py - 16); ctx.lineTo(px, py - 2); ctx.fill();
+            }
+
+            // 1. Draw Arms (Skin color, moved down slightly)
+            ctx.fillStyle = '#fbd38d'; 
+            if (rpgPlayer.facing === 'down' || rpgPlayer.facing === 'up') {
+                ctx.fillRect(px - 16, py - 12, 4, 10); 
+                ctx.fillRect(px + 12, py - 12, 4, 10); 
+            } else if (rpgPlayer.facing === 'right') {
+                ctx.fillRect(px - 2, py - 12 + walkOffset, 6, 10); 
+            } else if (rpgPlayer.facing === 'left') {
+                ctx.fillRect(px - 4, py - 12 + walkOffset, 6, 10); 
+            }
+
+            // 2. Draw Short Sleeves (White shirt color)
+            ctx.fillStyle = '#f8fafc'; 
+            if (rpgPlayer.facing === 'down' || rpgPlayer.facing === 'up') {
+                ctx.fillRect(px - 17, py - 17, 6, 6); // Left sleeve
+                ctx.fillRect(px + 11, py - 17, 6, 6); // Right sleeve
+            } else if (rpgPlayer.facing === 'right') {
+                ctx.fillRect(px - 3, py - 17 + walkOffset, 8, 6); // Side sleeve
+            } else if (rpgPlayer.facing === 'left') {
+                ctx.fillRect(px - 5, py - 17 + walkOffset, 8, 6); // Side sleeve
+            }
+
+            ctx.fillStyle = '#fbd38d'; ctx.beginPath(); ctx.arc(px, py - 28, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#451a03';
+            if (rpgPlayer.facing === 'down') {
+                ctx.beginPath(); ctx.arc(px, py - 32, 12, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px - 4, py - 28, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(px + 4, py - 28, 2, 0, Math.PI*2); ctx.fill();
+            } else if (rpgPlayer.facing === 'up') {
+                ctx.beginPath(); ctx.arc(px, py - 30, 12, 0, Math.PI*2); ctx.fill(); 
+            } else if (rpgPlayer.facing === 'right') {
+                ctx.beginPath(); ctx.arc(px - 2, py - 32, 12, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px + 6, py - 28, 2, 0, Math.PI*2); ctx.fill();
+            } else if (rpgPlayer.facing === 'left') {
+                ctx.beginPath(); ctx.arc(px + 2, py - 32, 12, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px - 6, py - 28, 2, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        function openStation(key) {
+            activeStationKey = key;
+            activeTopicData = curriculum[key];
+            
+            document.getElementById('view_lobby').classList.add('hidden');
+            document.getElementById('view_station').classList.remove('hidden');
+            document.getElementById('view_station').classList.add('flex');
+            document.getElementById('stationTitle').innerText = activeTopicData.title;
+
+            const gameTabBtn = document.getElementById('tab-btn-game');
+            if (activeTopicData.game) gameTabBtn.classList.remove('hidden');
+            else gameTabBtn.classList.add('hidden');
+
+            switchTab('lesson');
+        }
+
+        function closeStation() {
+            stopGame();
+            questCleanupFns.forEach(fn => fn());
+            questCleanupFns = [];
+            
+            const videoEl = document.querySelector('video');
+            if (videoEl) videoEl.pause();
+            
+            document.getElementById('view_station').classList.add('hidden');
+            document.getElementById('view_station').classList.remove('flex');
+            document.getElementById('view_lobby').classList.remove('hidden');
+            
+            const content = document.getElementById('lessonContentContainer');
+            content.innerHTML = '';
+            
+            // Re-start RPG map based on current filter
+            startRPG(currentLobbyFilter);
+            missPennySpeak(`Welcome back to the ${currentLobbyFilter === 'beg' ? 'Beginner' : (currentLobbyFilter === 'int' ? 'Intermediate' : 'Advanced')} map! Where to next?`);
+        }
+
+        function switchTab(tabName) {
+            if(tabName !== 'game') stopGame();
+
+            if(tabName !== 'lesson') {
+                const videoEl = document.querySelector('video');
+                if (videoEl) videoEl.pause();
+            }
+
+            ['lesson', 'quest', 'game'].forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (!btn) return;
+                if (t === tabName) {
+                    btn.className = "flex-1 py-3 text-center border-b-4 border-amber-400 text-amber-600 bg-white transition-all flex items-center justify-center gap-2 font-bold";
+                } else {
+                    btn.className = "flex-1 py-3 text-center border-b-4 border-transparent text-slate-400 transition-all flex items-center justify-center gap-2 hover:bg-slate-100";
+                }
+            });
+
+            ['lesson', 'quest', 'game'].forEach(t => {
+                const content = document.getElementById(`tab-content-${t}`);
+                if (!content) return;
+                if (t === tabName) content.classList.remove('hidden', '!hidden');
+                else content.classList.add('hidden');
+            });
+
+            if (tabName === 'lesson') renderLesson();
+            if (tabName === 'quest') startQuest();
+            if (tabName === 'game') setupGameArea();
+        }
+
+        // ==========================================
+        // 4. TAB 1: LESSON LOGIC
+        // ==========================================
+        function renderLesson() {
+            const content = document.getElementById('lessonContentContainer');
+            content.innerHTML = "";
+
+            const renderTextFallback = () => {
+                content.innerHTML = `
+                    <div class="bg-yellow-50 border-4 border-yellow-200 rounded-xl p-6 w-full shadow-inner text-center">
+                        <span class="text-4xl block mb-2">✨</span>
+                        <p class="text-slate-700 text-lg font-bold leading-relaxed">${activeTopicData.rule}</p>
+                    </div>
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 shadow-sm w-full mt-4">
+                        <h4 class="text-blue-700 font-bold text-sm uppercase tracking-wider mb-2 text-center">Example</h4>
+                        <p class="text-slate-700 text-xl font-mono text-center bg-white p-3 rounded-lg border border-blue-100">${activeTopicData.example}</p>
+                    </div>
+                `;
+                missPennySpeak(`Let's learn about ${activeTopicData.title}! ${activeTopicData.rule} For example: ${activeTopicData.example}`);
+            };
+
+            if (activeTopicData.videoSrc) {
+                const videoElement = document.createElement('video');
+                videoElement.src = activeTopicData.videoSrc;
+                videoElement.controls = true;
+                // Removed autoplay
+                videoElement.className = "w-full aspect-video outline-none";
+                
+                // Mute Miss P if the user manually clicks play
+                videoElement.addEventListener('play', () => {
+                   if ('speechSynthesis' in window) {
+                       window.speechSynthesis.cancel();
+                   }
+                });
+
+                videoElement.onerror = function() {
+                    console.warn(`Video load failed: ${activeTopicData.videoSrc}. Using text fallback.`);
+                    renderTextFallback();
+                };
+
+                const videoContainer = document.createElement('div');
+                videoContainer.className = "w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg bg-black border-4 border-sky-100";
+                videoContainer.appendChild(videoElement);
+                content.appendChild(videoContainer);
+
+            } else {
+                renderTextFallback();
+            }
+        }
+
+        // ==========================================
+        // 5. TAB 2: QUEST LOGIC (With Multiple Input Types)
+        // ==========================================
+        function startQuest() {
+            currentQuestIndex = 0;
+            questScore = 0;
+            document.getElementById('questScore').innerText = questScore;
+            renderQuestQuestion();
+            missPennySpeak("Quest started! Do your best!");
+        }
+
+        function renderQuestQuestion() {
+            questCleanupFns.forEach(fn => fn());
+            questCleanupFns = [];
+
+            const qData = activeTopicData.quizzes[currentQuestIndex];
+            questFails = 0; 
+            
+            document.getElementById('questProgressTag').innerText = `Quest ${currentQuestIndex + 1}/${activeTopicData.quizzes.length}`;
+            document.getElementById('questNextContainer').classList.add('hidden');
+            
+            const qContainer = document.getElementById('questQuestionText');
+            const optionsContainer = document.getElementById('questOptionsContainer');
+            
+            optionsContainer.innerHTML = "";
+            qContainer.innerText = qData.q;
+            
+            // --- TYPE 1: MATCHING PUZZLE GAME ---
+            if (qData.type === 'matching') {
+                const container = document.createElement('div');
+                container.className = "relative w-full flex justify-between gap-4 mt-2 max-w-2xl mx-auto";
+                
+                const svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svgLayer.setAttribute("class", "absolute inset-0 w-full h-full pointer-events-none z-0");
+                container.appendChild(svgLayer);
+                
+                const leftCol = document.createElement('div');
+                leftCol.className = "flex flex-col gap-3 w-1/2 z-10";
+                
+                const rightCol = document.createElement('div');
+                rightCol.className = "flex flex-col gap-3 w-1/2 z-10";
+                
+                const pairs = qData.pairs;
+                const leftItems = pairs.map(p => p.left);
+                const rightItems = pairs.map(p => p.right).sort(() => Math.random() - 0.5); 
+                
+                let selectedLeftBtn = null;
+                let matchedPairs = []; 
+
+                const drawLines = () => {
+                    svgLayer.innerHTML = '';
+                    const containerRect = container.getBoundingClientRect();
+                    matchedPairs.forEach(pair => {
+                        const lRect = pair.l.getBoundingClientRect();
+                        const rRect = pair.r.getBoundingClientRect();
+                        
+                        const x1 = lRect.right - containerRect.left;
+                        const y1 = lRect.top + lRect.height / 2 - containerRect.top;
+                        const x2 = rRect.left - containerRect.left;
+                        const y2 = rRect.top + rRect.height / 2 - containerRect.top;
+                        
+                        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", x1);
+                        line.setAttribute("y1", y1);
+                        line.setAttribute("x2", x2);
+                        line.setAttribute("y2", y2);
+                        line.setAttribute("stroke", "#34d399"); 
+                        line.setAttribute("stroke-width", "4");
+                        line.setAttribute("stroke-linecap", "round");
+                        line.setAttribute("class", "animated-line");
+                        svgLayer.appendChild(line);
+                    });
+                };
+
+                const checkWin = () => {
+                    if (matchedPairs.length === pairs.length) {
+                        let earned = 10; 
+                        questScore += earned; totalStars += earned; 
+                        document.getElementById('questScore').innerText = questScore; 
+                        saveGameState();
+                        missPennySpeak("Perfect matching!");
+                        confetti({ particleCount: 50, spread: 60 });
+                        document.getElementById('questNextContainer').classList.remove('hidden');
+                    }
+                };
+
+                const leftBtns = [];
+                const rightBtns = [];
+
+                leftItems.forEach(text => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-slate-200 p-3 rounded-xl font-bold text-slate-700 shadow-sm text-sm hover:border-sky-400 transition-colors text-left flex items-center";
+                    btn.innerText = text;
+                    btn.dataset.text = text;
+                    btn.onclick = () => {
+                        if(btn.disabled) return;
+                        leftBtns.forEach(b => { if(!b.disabled) b.classList.remove('border-sky-400', 'bg-sky-50') });
+                        btn.classList.add('border-sky-400', 'bg-sky-50');
+                        selectedLeftBtn = btn;
+                    };
+                    leftBtns.push(btn);
+                    leftCol.appendChild(btn);
+                });
+
+                rightItems.forEach(text => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-slate-200 p-3 rounded-xl font-bold text-slate-700 shadow-sm text-sm hover:border-sky-400 transition-colors text-left flex items-center justify-end";
+                    btn.innerText = text;
+                    btn.dataset.text = text;
+                    btn.onclick = () => {
+                        if(btn.disabled) return;
+                        if(!selectedLeftBtn) {
+                            missPennySpeak("Please select a sentence on the left first!");
+                            return;
+                        }
+                        
+                        const correctRight = pairs.find(p => p.left === selectedLeftBtn.dataset.text).right;
+                        if(btn.dataset.text === correctRight) {
+                            selectedLeftBtn.disabled = true;
+                            btn.disabled = true;
+                            selectedLeftBtn.classList.replace('border-sky-400', 'border-emerald-400');
+                            selectedLeftBtn.classList.replace('bg-sky-50', 'bg-emerald-50');
+                            btn.classList.replace('border-slate-200', 'border-emerald-400');
+                            btn.classList.add('bg-emerald-50');
+                            
+                            matchedPairs.push({ l: selectedLeftBtn, r: btn });
+                            selectedLeftBtn = null;
+                            drawLines();
+                            checkWin();
+                        } else {
+                            btn.classList.add('border-rose-400', 'bg-rose-50');
+                            setTimeout(() => {
+                                if(!btn.disabled) btn.classList.remove('border-rose-400', 'bg-rose-50');
+                            }, 500);
+                            missPennySpeak("Not quite! Try finding another match.");
+                        }
+                    };
+                    rightBtns.push(btn);
+                    rightCol.appendChild(btn);
+                });
+
+                container.appendChild(leftCol);
+                container.appendChild(rightCol);
+                optionsContainer.appendChild(container);
+
+                window.addEventListener('resize', drawLines);
+                questCleanupFns.push(() => window.removeEventListener('resize', drawLines));
+            } 
+            // --- TYPE 2: INPUT FIELD ---
+            else if (qData.type === 'input') {
+                const inputContainer = document.createElement('div');
+                inputContainer.className = "flex flex-col gap-4 w-full max-w-md mx-auto mt-4";
+                
+                const inputField = document.createElement('input');
+                inputField.type = "text";
+                inputField.placeholder = "Type your answer...";
+                inputField.className = "w-full text-center text-xl bg-white border-4 border-slate-200 focus:border-sky-400 p-4 rounded-xl font-bold text-slate-700 outline-none transition-all shadow-inner";
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.className = "w-full bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all";
+                submitBtn.innerText = "Submit Answer";
+                
+                const checkInputAnswer = () => {
+                    if (submitBtn.disabled) return;
+                    const userAns = inputField.value.trim().toLowerCase();
+                    const correctAns = qData.correct.toLowerCase();
+
+                    if (userAns === correctAns) {
+                        inputField.disabled = true;
+                        submitBtn.disabled = true;
+                        inputField.classList.remove('border-slate-200', 'focus:border-sky-400');
+                        inputField.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-800');
+                        submitBtn.classList.replace('bg-sky-400', 'bg-emerald-500');
+                        submitBtn.classList.replace('hover:bg-sky-500', 'hover:bg-emerald-600');
+                        submitBtn.innerText = "Correct!";
+                        
+                        let earned = (questFails === 0) ? 5 : 2;
+                        questScore += earned; totalStars += earned; 
+                        document.getElementById('questScore').innerText = questScore; 
+                        saveGameState();
+                        missPennySpeak("Correct!");
+                        confetti({ particleCount: 30, spread: 50 });
+                        document.getElementById('questNextContainer').classList.remove('hidden');
+                    } else {
+                        questFails++;
+                        inputField.classList.add('border-rose-400', 'bg-rose-50', 'text-rose-800');
+                        setTimeout(() => inputField.classList.remove('border-rose-400', 'bg-rose-50', 'text-rose-800'), 500);
+
+                        if (questFails === 1) {
+                            missPennySpeak(`Not quite! Remember: ${activeTopicData.rule} Try again!`);
+                        } else if (questFails >= 2) {
+                            inputField.disabled = true;
+                            submitBtn.disabled = true;
+                            inputField.value = qData.correct;
+                            inputField.classList.remove('border-slate-200', 'focus:border-sky-400', 'border-rose-400', 'bg-rose-50', 'text-rose-800');
+                            inputField.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-800');
+                            missPennySpeak(`Oops! The correct answer is ${qData.correct}.`);
+                            document.getElementById('questNextContainer').classList.remove('hidden');
+                        }
+                    }
+                };
+
+                submitBtn.onclick = checkInputAnswer;
+                inputField.onkeypress = (e) => { if(e.key === 'Enter') checkInputAnswer(); };
+
+                inputContainer.appendChild(inputField);
+                inputContainer.appendChild(submitBtn);
+                optionsContainer.appendChild(inputContainer);
+                
+                setTimeout(() => inputField.focus(), 100);
+
+            } 
+            // --- TYPE 3: MULTIPLE CHOICE ---
+            else {
+                const grid = document.createElement('div');
+                grid.className = "grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl mx-auto";
+                
+                qData.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-center bg-white border-2 border-slate-200 hover:bg-sky-50 hover:border-sky-300 p-4 rounded-xl font-bold text-slate-700 transition-all shadow-sm";
+                    btn.innerText = opt;
+                    btn.dataset.val = opt; 
+                    
+                    btn.onclick = () => {
+                        if (btn.disabled) return;
+                        
+                        if (btn.dataset.val === qData.correct) {
+                            Array.from(grid.children).forEach(c => c.disabled = true);
+                            btn.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300');
+                            btn.classList.add('bg-emerald-100', 'border-emerald-400', 'text-emerald-800');
+                            
+                            let earned = (questFails === 0) ? 5 : 2;
+                            questScore += earned; totalStars += earned; 
+                            document.getElementById('questScore').innerText = questScore; 
+                            saveGameState();
+                            missPennySpeak("Correct!");
+                            confetti({ particleCount: 30, spread: 50 });
+                            document.getElementById('questNextContainer').classList.remove('hidden');
+                        } else {
+                            btn.disabled = true;
+                            btn.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300');
+                            btn.classList.add('bg-rose-100', 'border-rose-400', 'text-rose-800', 'opacity-50');
+                            questFails++;
+                            
+                            if (questFails === 1) {
+                                missPennySpeak(`Not quite! Remember: ${activeTopicData.rule} Try again!`);
+                            } else if (questFails >= 2) {
+                                Array.from(grid.children).forEach(c => c.disabled = true);
+                                missPennySpeak(`Oops! The correct answer is ${qData.correct}.`);
+                                
+                                Array.from(grid.children).forEach(c => {
+                                    if (c.dataset.val === qData.correct) {
+                                        c.classList.remove('bg-white', 'border-slate-200', 'hover:bg-sky-50', 'hover:border-sky-300', 'opacity-50', 'bg-rose-100', 'border-rose-400', 'text-rose-800');
+                                        c.classList.add('bg-emerald-100', 'border-emerald-400', 'text-emerald-800');
+                                    }
+                                });
+                                document.getElementById('questNextContainer').classList.remove('hidden');
+                            }
+                        }
+                    };
+                    grid.appendChild(btn);
+                });
+                optionsContainer.appendChild(grid);
+            }
+        }
+
+        function nextQuestQuestion() {
+            currentQuestIndex++;
+            if (currentQuestIndex < activeTopicData.quizzes.length) {
+                renderQuestQuestion();
+            } else {
+                missPennySpeak(`Quest complete! You earned ${questScore} stars!`);
+                if (activeTopicData.game) switchTab('game');
+                else closeStation();
+            }
+        }
+
+        // ==========================================
+        // 6. TAB 3: MULTI-GAME ENGINE
+        // ==========================================
+        function setupGameArea() {
+            stopGame();
+            if(!activeTopicData || !activeTopicData.game) return;
+
+            const overlay = document.getElementById('gameStartOverlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = `
+                    <button onclick="startGame()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold text-xl py-4 px-8 rounded-3xl shadow-xl transform hover:scale-110 transition-all border-4 border-purple-300 cursor-pointer">
+                        Start Game!
+                    </button>
+                `;
+            }
+            
+            document.getElementById('gameTargetText').innerText = activeTopicData.game.targetText;
+            document.getElementById('gameScore').innerText = "0";
+            document.getElementById('gameTimer').innerText = "30s";
+
+            document.getElementById('bubble-container').classList.add('hidden');
+            document.getElementById('monster-container').classList.add('hidden');
+            document.getElementById('robot-container').classList.add('hidden');
+            document.getElementById('treasure-container').classList.add('hidden');
+            document.getElementById('catbox-container').classList.add('hidden');
+            document.getElementById('spot-container').classList.add('hidden');
+
+            const gType = activeTopicData.game.type || 'bubble';
+            if (gType === 'bubble') document.getElementById('bubble-container').classList.remove('hidden');
+            else if (gType === 'monster') document.getElementById('monster-container').classList.remove('hidden');
+            else if (gType === 'robot') document.getElementById('robot-container').classList.remove('hidden');
+            else if (gType === 'treasure') document.getElementById('treasure-container').classList.remove('hidden');
+            else if (gType === 'catbox') document.getElementById('catbox-container').classList.remove('hidden');
+            else if (gType === 'spot') document.getElementById('spot-container').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const overlay = document.getElementById('gameStartOverlay');
+            if (overlay) overlay.classList.add('hidden');
+            
+            gameScore = 0; 
+            gameTime = 30; 
+            isGameRunning = true;
+            document.getElementById('gameScore').innerText = gameScore;
+            missPennySpeak("Ready, Set, Go!");
+
+            gameInterval = setInterval(() => {
+                gameTime--;
+                document.getElementById('gameTimer').innerText = gameTime + "s";
+                if (gameTime <= 0) endGame();
+            }, 1000);
+
+            const gType = activeTopicData.game.type || 'bubble';
+            if (gType === 'bubble') spawnInterval = setInterval(spawnBubble, 800);
+            else if (gType === 'monster') nextMonsterWord();
+            else if (gType === 'robot') nextRobotWord();
+            else if (gType === 'treasure') nextTreasureWord();
+            else if (gType === 'catbox') nextCatSentence();
+            else if (gType === 'spot') nextSpotSentence();
+        }
+
+        function stopGame() {
+            isGameRunning = false;
+            if (gameInterval) clearInterval(gameInterval); 
+            if (spawnInterval) clearInterval(spawnInterval);
+            
+            const bContainer = document.getElementById('bubble-container');
+            if(bContainer) {
+                Array.from(bContainer.children).forEach(c => {
+                    if (c.id !== 'gameStartOverlay') c.remove();
+                });
+            }
+            const mwDisplay = document.getElementById('monster-word-display');
+            if(mwDisplay) mwDisplay.classList.add('hidden');
+            
+            const rtDisplay = document.getElementById('robot-target-display');
+            if(rtDisplay) rtDisplay.innerText = "";
+            
+            const twDisplay = document.getElementById('treasure-word-display');
+            if(twDisplay) twDisplay.classList.add('hidden');
+            
+            // Reset Cat position & size
+            const cat = document.getElementById('the-cat');
+            if(cat) {
+                cat.style.left = '15%'; cat.style.bottom = '10px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            }
+        }
+
+        function endGame() {
+            stopGame();
+            const overlay = document.getElementById('gameStartOverlay');
+            overlay.classList.remove('hidden');
+            overlay.innerHTML = `
+                <div class="text-center bg-white p-6 rounded-3xl shadow-2xl border-4 border-amber-300 z-50">
+                    <h3 class="kids-title text-3xl text-amber-500 mb-2">Time's Up!</h3>
+                    <p class="text-xl text-slate-700 font-bold mb-4">You scored <span class="text-purple-600">${gameScore}</span> points!</p>
+                    <button onclick="closeStation()" class="bg-sky-400 hover:bg-sky-500 text-white font-bold py-3 px-8 rounded-2xl shadow-md cursor-pointer">Finish Lesson</button>
+                </div>
+            `;
+            totalStars += Math.floor(gameScore / 2);
+            saveGameState();
+            missPennySpeak(`Amazing! You scored ${gameScore} points!`);
+            confetti({ particleCount: 100, spread: 70 });
+        }
+
+        // -- Bubble Logic --
+        function spawnBubble() {
+            if(!isGameRunning) return;
+            const container = document.getElementById('bubble-container');
+            const isTarget = Math.random() > 0.4; 
+            const wordList = isTarget ? activeTopicData.game.targets : activeTopicData.game.decoys;
+            const word = wordList[Math.floor(Math.random() * wordList.length)];
+
+            const bubble = document.createElement('div');
+            const size = 60 + Math.random() * 30;
+            const left = Math.random() * (container.clientWidth - size);
+            
+            const colors = ['bg-rose-400', 'bg-amber-400', 'bg-emerald-400', 'bg-purple-400', 'bg-pink-400'];
+            bubble.className = `bubble-pop ${colors[Math.floor(Math.random() * colors.length)]} text-white border-2 border-white text-center flex items-center justify-center p-1 leading-tight font-bold z-10`;
+            bubble.style.width = `${size}px`; bubble.style.height = `${size}px`;
+            bubble.style.left = `${left}px`; bubble.style.bottom = `-50px`;
+            bubble.style.animation = `floatUp ${3.5 + Math.random() * 3}s linear forwards`;
+            
+            let fSize = size * 0.25;
+            if (word.length > 5) fSize = size * 0.18;
+            bubble.style.fontSize = `${fSize}px`;
+            bubble.innerText = word;
+
+            bubble.onclick = function() {
+                if (isTarget) {
+                    gameScore += 2;
+                    bubble.style.transform = "scale(1.5)"; bubble.style.opacity = "0";
+                    setTimeout(() => bubble.remove(), 150);
+                } else {
+                    gameScore -= 1;
+                    bubble.style.backgroundColor = "red";
+                }
+                document.getElementById('gameScore').innerText = gameScore;
+            };
+
+            container.appendChild(bubble);
+            setTimeout(() => { if (bubble.parentNode) bubble.remove(); }, 7000);
+        }
+
+        // -- Monster Logic (Articles) --
+        function nextMonsterWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentMonsterTarget = targets[Math.floor(Math.random() * targets.length)];
+            const display = document.getElementById('monster-word-display');
+            display.innerText = currentMonsterTarget.word;
+            display.classList.remove('hidden');
+        }
+
+        function feedMonster(selectedType) {
+            if (!isGameRunning || !currentMonsterTarget) return;
+            const emoji = document.getElementById('monster-emoji');
+            
+            if (selectedType === currentMonsterTarget.type) {
+                gameScore += 3;
+                emoji.innerText = "🥰"; emoji.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => { emoji.innerText = "👾"; emoji.classList.remove('animate-bounce'); }, 500);
+            } else {
+                gameScore -= 1;
+                emoji.innerText = "🤢";
+                setTimeout(() => emoji.innerText = "👾", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextMonsterWord();
+        }
+
+        // -- Robot Logic (Be-Verbs) --
+        function nextRobotWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentRobotTarget = targets[Math.floor(Math.random() * targets.length)];
+            document.getElementById('robot-target-display').innerText = currentRobotTarget.word;
+        }
+
+        function powerRobot(selectedType) {
+            if (!isGameRunning || !currentRobotTarget) return;
+            const emoji = document.getElementById('robot-emoji');
+            
+            if (selectedType === currentRobotTarget.type) {
+                gameScore += 3;
+                emoji.innerText = "⚡🤖⚡"; emoji.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => { emoji.innerText = "🤖"; emoji.classList.remove('animate-bounce'); }, 500);
+            } else {
+                gameScore -= 1;
+                emoji.innerText = "💥🤖";
+                setTimeout(() => emoji.innerText = "🤖", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextRobotWord();
+        }
+
+        // -- Treasure Chest Logic (Plurals) --
+        function nextTreasureWord() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentTreasureTarget = targets[Math.floor(Math.random() * targets.length)];
+            const display = document.getElementById('treasure-word-display');
+            display.innerText = currentTreasureTarget.word;
+            display.classList.remove('hidden');
+        }
+
+        function openChest(selectedType) {
+            if (!isGameRunning || !currentTreasureTarget) return;
+            const chestBtn = document.getElementById(`chest-${selectedType}`);
+            
+            if (selectedType === currentTreasureTarget.type) {
+                gameScore += 3;
+                chestBtn.classList.add('animate-bounce');
+                confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                setTimeout(() => chestBtn.classList.remove('animate-bounce'), 500);
+            } else {
+                gameScore -= 1;
+                chestBtn.style.filter = "sepia(1) hue-rotate(-50deg) saturate(3)"; 
+                setTimeout(() => chestBtn.style.filter = "none", 500);
+            }
+            document.getElementById('gameScore').innerText = gameScore;
+            nextTreasureWord();
+        }
+
+        // -- Cat & Box Logic (Prepositions) --
+        function nextCatSentence() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentCatTarget = targets[Math.floor(Math.random() * targets.length)];
+            
+            const display = document.getElementById('catbox-sentence-display');
+            let htmlSentence = currentCatTarget.sentence.replace(
+                currentCatTarget.word.toUpperCase(), 
+                `<span class="text-pink-500 underline underline-offset-4">${currentCatTarget.word.toUpperCase()}</span>`
+            );
+            display.innerHTML = htmlSentence;
+            
+            const cat = document.getElementById('the-cat');
+            cat.style.left = '15%'; cat.style.bottom = '10px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+        }
+
+        function moveCat(position) {
+            if (!isGameRunning || !currentCatTarget) return;
+            const cat = document.getElementById('the-cat');
+            
+            cat.style.left = '50%';
+            
+            if (position === 'on') {
+                cat.style.bottom = '165px'; cat.style.zIndex = '15'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            } else if (position === 'in') {
+                cat.style.bottom = '75px'; cat.style.zIndex = '5'; cat.style.transform = 'translate(-50%, 0) scale(0.6)';
+            } else if (position === 'under') {
+                cat.style.bottom = '-5px'; cat.style.zIndex = '5'; cat.style.transform = 'translate(-50%, 0) scale(1)';
+            }
+
+            setTimeout(() => {
+                if (position === currentCatTarget.word) {
+                    gameScore += 3;
+                    cat.innerText = "😻";
+                    confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 } });
+                    setTimeout(() => cat.innerText = "🐱", 600);
+                } else {
+                    gameScore -= 1;
+                    cat.innerText = "🙀";
+                    setTimeout(() => cat.innerText = "🐱", 600);
+                }
+                document.getElementById('gameScore').innerText = gameScore;
+                setTimeout(nextCatSentence, 800);
+            }, 300);
+        }
+
+        // -- Spot The Error Logic (Proofreading) --
+        function nextSpotSentence() {
+            if (!isGameRunning) return;
+            const targets = activeTopicData.game.targets;
+            currentSpotTarget = targets[Math.floor(Math.random() * targets.length)];
+            
+            const box = document.getElementById('spot-sentence-box');
+            box.innerHTML = '';
+            document.getElementById('spot-feedback').innerText = '';
+
+            currentSpotTarget.sentence.forEach((word, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "bg-white border-2 border-slate-200 text-slate-700 font-bold text-xl px-4 py-2 rounded-xl shadow-sm hover:bg-sky-50 hover:border-sky-300 hover:-translate-y-1 transition-all cursor-pointer";
+                btn.innerText = word;
+                
+                btn.onclick = () => {
+                    if (!isGameRunning) return;
+                    Array.from(box.children).forEach(c => c.disabled = true);
+                    
+                    if (idx === currentSpotTarget.wrongIdx) {
+                        gameScore += 4;
+                        btn.className = "bg-emerald-400 border-2 border-emerald-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md scale-110 transition-all";
+                        btn.innerText = currentSpotTarget.correction;
+                        document.getElementById('spot-feedback').innerHTML = `<span class="text-emerald-500">Correct! 🌟</span>`;
+                        confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+                    } else {
+                        gameScore -= 2;
+                        btn.className = "bg-rose-400 border-2 border-rose-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md transition-all";
+                        document.getElementById('spot-feedback').innerHTML = `<span class="text-rose-500">Oops! That wasn't the mistake.</span>`;
+                        
+                        const correctBtn = box.children[currentSpotTarget.wrongIdx];
+                        correctBtn.className = "bg-emerald-400 border-2 border-emerald-500 text-white font-bold text-xl px-4 py-2 rounded-xl shadow-md transition-all opacity-80";
+                        correctBtn.innerText = currentSpotTarget.correction;
+                    }
+                    
+                    document.getElementById('gameScore').innerText = gameScore;
+                    setTimeout(nextSpotSentence, 1500);
+                };
+                
+                box.appendChild(btn);
+            });
+        }
+
+        // ==========================================
+        // 7. UTILS & INIT
+        // ==========================================
+        function toggleVoice() {
+            isVoiceEnabled = !isVoiceEnabled;
+            saveGameState();
+            if (!isVoiceEnabled && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); 
+            } else if (isVoiceEnabled) {
+                missPennySpeak("Voice is on!");
+            }
+        }
+
+        function missPennySpeak(text) {
+            const img = document.getElementById('teacherImageReal');
+            const svgImg = document.getElementById('teacherImage');
+            document.getElementById('speechText').innerText = text;
+            
+            if (!isVoiceEnabled) return; 
+            
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "en-US"; utterance.rate = 0.95;
+                utterance.onstart = () => { img.classList.add('talking-anim'); svgImg.classList.add('talking-anim'); };
+                utterance.onend = () => { img.classList.remove('talking-anim'); svgImg.classList.remove('talking-anim'); };
+                utterance.onerror = () => { img.classList.remove('talking-anim'); svgImg.classList.remove('talking-anim'); };
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Control') {
+                totalStars += 100;
+                saveGameState();
+                missPennySpeak("Developer shortcut! You got 100 stars!");
+                confetti();
+            }
+        });
+
+        // Initialize
+        window.onload = function() {
+            loadGameState();
+            initLobby();
+            setTimeout(() => missPennySpeak("Welcome to Grammar Island! Walk to a portal or click on it to start learning!"), 1000);
+        };
+
+    </script>
+</body>
+</html>
